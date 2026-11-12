@@ -4,3 +4,6 @@ data/
 .env
 scratch/
 .pytest_cache/
+build/
+dist/
+*.spec
