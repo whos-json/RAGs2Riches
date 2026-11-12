@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 ProviderName = Literal["template", "ollama", "openai_compatible", "anthropic", "openai"]
 
@@ -22,6 +22,17 @@ class DealInput(BaseModel):
     agent_name: Optional[str] = Field(default=None, max_length=120)
     notes: Optional[str] = Field(default=None, max_length=4000)
 
+    @field_validator(
+        "deal_name", "account_name", "industry", "property_name", "agent_name", "notes", mode="before"
+    )
+    @classmethod
+    def _blank_to_none(cls, value):
+        """Treat whitespace-only strings as missing so they never act as filters or features."""
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
 
 class LLMSelection(BaseModel):
     provider: ProviderName = "template"
@@ -39,6 +50,8 @@ class BaselineMetrics(BaseModel):
     n_with_fee: int
     median_fee_sgd: Optional[float]
     mean_fee_sgd: Optional[float]
+    fee_p25_sgd: Optional[float] = None
+    fee_p75_sgd: Optional[float] = None
     median_size_sqft: Optional[float]
     median_lease_term_months: Optional[float]
     outcome_coverage: int

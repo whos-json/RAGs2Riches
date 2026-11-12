@@ -11,6 +11,15 @@ from app.schemas import Analogue
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 
+# Feature prefixes that count as a "meaningful" overlap. A shared lease-term
+# band alone is too weak to call a deal an analogue.
+CORE_FEATURE_PREFIXES = ("ind_", "size_", "prop_")
+# Uncalibrated floor on cosine similarity below which a match is noise.
+MIN_SIMILARITY = 0.15
+# Similarities are compared at this precision when ranking so float noise
+# cannot reorder genuine ties; ties then break on deal_name.
+_RANK_PRECISION = 9
+
 
 def _slug(text: str) -> str:
     return "_".join(TOKEN_RE.findall(text.lower()))
@@ -30,12 +39,18 @@ def _features(
     if band:
         features.append(f"term_{_slug(band)}")
     if property_name:
-        features.append(f"prop_{_slug(property_name)}")
+        slug = _slug(property_name)
+        if slug:
+            features.append(f"prop_{slug}")
     return features
 
 
 def _norm(vector: dict[str, float]) -> float:
     return math.sqrt(sum(v * v for v in vector.values()))
+
+
+def _has_core_overlap(shared: set[str]) -> bool:
+    return any(feature.startswith(CORE_FEATURE_PREFIXES) for feature in shared)
 
 
 def find_analogues(
@@ -49,12 +64,21 @@ def find_analogues(
 
     Pure Python, no paid embedding service. Swap in an embedding model later
     without changing callers. Account names are excluded from the features.
+
+    A deal is returned only if it shares at least one core feature (industry
+    token, size tier or property) with the query and scores at least
+    ``MIN_SIMILARITY``. Results are ordered by similarity, then ``deal_name``,
+    so equal scores always come back in the same order.
     """
+    if k <= 0:
+        return []
+    wanted_outcome = outcome.strip().upper() if outcome else None
+
     docs: list[tuple[Deal, Counter]] = []
     for deal in deals:
-        if deal.deal_name == exclude_name:
+        if exclude_name is not None and deal.deal_name == exclude_name:
             continue
-        if outcome and deal.outcome != outcome:
+        if wanted_outcome and (deal.outcome or "").strip().upper() != wanted_outcome:
             continue
         feats = _features(
             deal.industry, deal.size_tier, term_band(deal.lease_term_months), deal.property_name
@@ -76,25 +100,33 @@ def find_analogues(
     for _, counts in docs:
         doc_freq.update(counts.keys())
     n_docs = len(docs)
-    idf = {t: math.log((n_docs + 1) / (df + 1)) + 1 for t, df in doc_freq.items()}
 
-    q_vec = {t: tf * idf[t] for t, tf in query_counts.items() if t in idf}
+    def idf(term: str) -> float:
+        # Query terms absent from the corpus get the highest idf (df=0) rather
+        # than being dropped: dropping them would let a deal that matches only
+        # the remaining terms look like a perfect match.
+        return math.log((n_docs + 1) / (doc_freq.get(term, 0) + 1)) + 1
+
+    q_vec = {t: tf * idf(t) for t, tf in query_counts.items()}
     q_norm = _norm(q_vec)
-    if not q_vec:
+    if q_norm == 0:
         return []
 
     scored: list[tuple[float, Deal]] = []
     for deal, counts in docs:
-        d_vec = {t: tf * idf[t] for t, tf in counts.items()}
+        d_vec = {t: tf * idf(t) for t, tf in counts.items()}
         d_norm = _norm(d_vec)
         if d_norm == 0:
             continue
-        dot = sum(weight * d_vec[t] for t, weight in q_vec.items() if t in d_vec)
+        shared = set(q_vec) & set(d_vec)
+        if not _has_core_overlap(shared):
+            continue
+        dot = sum(q_vec[t] * d_vec[t] for t in sorted(shared))
         similarity = dot / (q_norm * d_norm)
-        if similarity > 0:
+        if similarity >= MIN_SIMILARITY:
             scored.append((similarity, deal))
 
-    scored.sort(key=lambda item: (-item[0], item[1].deal_name))
+    scored.sort(key=lambda item: (-round(item[0], _RANK_PRECISION), item[1].deal_name))
     return [
         Analogue(
             deal_name=deal.deal_name,
@@ -103,7 +135,7 @@ def find_analogues(
             lease_term_months=deal.lease_term_months,
             gross_fee_sgd=deal.gross_fee_sgd,
             outcome=deal.outcome,
-            similarity=round(similarity, 3),
+            similarity=round(min(similarity, 1.0), 3),
         )
         for similarity, deal in scored[:k]
     ]

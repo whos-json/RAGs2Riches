@@ -1,16 +1,56 @@
 from __future__ import annotations
 
-from statistics import mean, median
-from typing import Callable, Optional
+import math
+from statistics import mean, median, quantiles
+from typing import Any, Callable, Iterable, Optional
 
 from app.db import Deal
 from app.schemas import BaselineMetrics
 
+# Minimum pool size before a match level is accepted. Uncalibrated: chosen so a
+# median is not driven by one or two deals. Revisit once outcome data exists.
 MIN_COMPARABLES = 5
+# Quartiles need a handful of points to mean anything; below this they are omitted.
+MIN_FEES_FOR_QUARTILES = 4
 
 
-def _positive(values: list[Optional[float]]) -> list[float]:
-    return [v for v in values if v is not None and v > 0]
+def _positive(values: Iterable[Any]) -> list[float]:
+    """Keep finite, strictly positive numbers.
+
+    Drops None, NaN, +/-inf, zero and negatives so a single bad ledger row
+    cannot poison a median (or make it non-JSON-serialisable).
+    """
+    cleaned: list[float] = []
+    for value in values:
+        if value is None or isinstance(value, bool):
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(number) and number > 0:
+            cleaned.append(number)
+    return cleaned
+
+
+def _text_key(value: Optional[str]) -> Optional[str]:
+    """Case/whitespace-insensitive key for category matching."""
+    if value is None:
+        return None
+    key = " ".join(str(value).split()).casefold()
+    return key or None
+
+
+def _outcome(deal: Deal) -> Optional[str]:
+    value = (deal.outcome or "").strip().upper()
+    return value if value in {"WON", "LOST"} else None
+
+
+def _fee_quartiles(fees: list[float]) -> tuple[Optional[float], Optional[float]]:
+    if len(fees) < MIN_FEES_FOR_QUARTILES:
+        return None, None
+    q1, _, q3 = quantiles(fees, n=4, method="inclusive")
+    return round(q1, 2), round(q3, 2)
 
 
 def compute_baseline(
@@ -19,18 +59,24 @@ def compute_baseline(
     """Aggregate comparables, widening the match until enough deals are found.
 
     Match order: industry + size tier, size tier, industry, then all deals.
+    Medians (not means) are the headline figures because ledger fees and sizes
+    are heavily right-skewed. Non-positive, NaN and infinite values are ignored.
+    Win rate is only reported when at least one WON/LOST outcome exists; it is
+    never inferred from missing outcomes.
     """
-    industry = normalized.get("industry")
+    industry = _text_key(normalized.get("industry"))
     tier = normalized.get("size_tier")
-    pool = [d for d in deals if d.deal_name != exclude_name]
+    pool = [d for d in deals if exclude_name is None or d.deal_name != exclude_name]
 
     levels: list[tuple[str, Callable[[Deal], bool]]] = []
     if industry and tier:
-        levels.append(("industry + size tier", lambda d: d.industry == industry and d.size_tier == tier))
+        levels.append(
+            ("industry + size tier", lambda d: _text_key(d.industry) == industry and d.size_tier == tier)
+        )
     if tier:
         levels.append(("size tier", lambda d: d.size_tier == tier))
     if industry:
-        levels.append(("industry", lambda d: d.industry == industry))
+        levels.append(("industry", lambda d: _text_key(d.industry) == industry))
     levels.append(("all deals", lambda d: True))
 
     match_level, comps = "all deals (insufficient matches)", pool
@@ -40,12 +86,13 @@ def compute_baseline(
             match_level, comps = label, matched
             break
 
-    fees = _positive([d.gross_fee_sgd for d in comps])
-    sizes = _positive([d.size_sqft for d in comps])
-    terms = _positive([d.lease_term_months for d in comps])
-    won = sum(1 for d in comps if d.outcome == "WON")
-    lost = sum(1 for d in comps if d.outcome == "LOST")
+    fees = _positive(d.gross_fee_sgd for d in comps)
+    sizes = _positive(d.size_sqft for d in comps)
+    terms = _positive(d.lease_term_months for d in comps)
+    won = sum(1 for d in comps if _outcome(d) == "WON")
+    lost = sum(1 for d in comps if _outcome(d) == "LOST")
     decided = won + lost
+    fee_p25, fee_p75 = _fee_quartiles(fees)
 
     return BaselineMetrics(
         match_level=match_level,
@@ -53,6 +100,8 @@ def compute_baseline(
         n_with_fee=len(fees),
         median_fee_sgd=round(median(fees), 2) if fees else None,
         mean_fee_sgd=round(mean(fees), 2) if fees else None,
+        fee_p25_sgd=fee_p25,
+        fee_p75_sgd=fee_p75,
         median_size_sqft=round(median(sizes), 1) if sizes else None,
         median_lease_term_months=round(median(terms), 1) if terms else None,
         outcome_coverage=decided,

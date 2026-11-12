@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Callable, Iterable, Mapping, Optional, TypedDict, cast
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
@@ -11,7 +12,7 @@ from langgraph.graph import END, START, StateGraph
 from sqlalchemy import select
 
 from app import llm as llm_mod
-from app.baseline import compute_baseline
+from app.baseline import MIN_COMPARABLES, compute_baseline
 from app.db import Deal
 from app.normalize import size_tier, term_band
 from app.redaction import alias, redact_text
@@ -29,23 +30,51 @@ from app.schemas import (
     Qualification,
 )
 
-# Placeholder thresholds for demonstration. Calibrate against real outcomes (Phase 3).
+# ---------------------------------------------------------------------------
+# UNCALIBRATED THRESHOLDS
+# Every value in this block is a placeholder chosen for demonstration. None of
+# them has been fitted or validated against real WON/LOST outcomes or effort
+# data. Calibrate them (build guide, Phase 3) before relying on the resulting
+# pursue recommendation, effort tier, hours or confidence level.
+# ---------------------------------------------------------------------------
 PURSUE_HIGH_PRIORITY_WIN_PCT = 60.0
 PURSUE_WIN_PCT = 40.0
+# A win rate from fewer decided deals than this is too noisy to drive a recommendation.
+MIN_DECIDED_OUTCOMES_FOR_PURSUE = 5
+
 HIGH_VALUE_FEE_SGD = 100_000
 MID_VALUE_FEE_SGD = 30_000
+TIER1_MAX_HOURS = 25
+TIER2_MAX_HOURS = 12
+TIER3_MAX_HOURS = 6
+
+HIGH_CONFIDENCE_MIN_COMPARABLES = 20
+HIGH_CONFIDENCE_MIN_OUTCOMES = 20
+MEDIUM_CONFIDENCE_MIN_COMPARABLES = 10
+# ---------------------------------------------------------------------------
+
+ANALOGUE_K = 5
+MAX_REFERENCED_DEALS = 3
 
 SYSTEM_PROMPT = (
     "You are a commercial leasing deal strategist. Use ONLY the metrics and analogues provided. "
     "Do not invent win probabilities, fees, timeframes or client facts. "
+    "If baseline.win_rate_pct is null, outcomes are unavailable: do not state or imply any win probability or percentage chance. "
     "In referenced_historical_deals, use only aliases from the analogues list, such as HIST-01."
 )
 HUMAN_PROMPT = "Deal and evidence (JSON):\n{payload}"
 
 
-class WorkflowState(TypedDict, total=False):
+class _RequiredState(TypedDict):
+    """Keys supplied by run_workflow before the graph starts."""
+
     deal: dict
     llm: dict
+
+
+class WorkflowState(_RequiredState, total=False):
+    """Keys below are produced by nodes as the graph runs; read them with _need()."""
+
     normalized: dict
     baseline: dict
     analogues: list[dict]
@@ -54,6 +83,14 @@ class WorkflowState(TypedDict, total=False):
     narrative_source: str
     warnings: list[str]
     scorecard: dict
+
+
+def _need(state: WorkflowState, key: str) -> Any:
+    """Read a node-produced key, failing with a clear message if an upstream node did not run."""
+    value = cast("Mapping[str, Any]", state).get(key)
+    if value is None:
+        raise KeyError(f"workflow state is missing '{key}': an upstream node did not produce it")
+    return value
 
 
 def _emitter(config: RunnableConfig) -> Callable[[dict], None]:
@@ -115,7 +152,7 @@ def _template_narrative(normalized: dict, baseline: BaselineMetrics, analogues: 
             "Risk: source data has no WON/LOST outcomes. Mitigation: treat this playbook as descriptive, "
             "not a calibrated win forecast."
         )
-    if baseline.n_comparables < 5:
+    if baseline.n_comparables < MIN_COMPARABLES:
         risks.append("Risk: few comparables. Mitigation: validate assumptions with the lead broker.")
     resources = ["Lead broker to validate requirement and shortlist within the comparable size band."]
     if baseline.median_fee_sgd and baseline.median_fee_sgd >= HIGH_VALUE_FEE_SGD:
@@ -124,22 +161,60 @@ def _template_narrative(normalized: dict, baseline: BaselineMetrics, analogues: 
         "winning_strategy": strategy,
         "key_risks_and_mitigations": risks,
         "recommended_resources": resources,
-        "referenced_historical_deals": [a.deal_name for a in analogues[:3]],
+        "referenced_historical_deals": [a.deal_name for a in analogues[:MAX_REFERENCED_DEALS]],
     }
 
 
+_NAME_FIELDS = ("deal_name", "account_name", "agent_name", "property_name")
+_NAME_STOPWORDS = frozenset(
+    {"pte", "ltd", "limited", "inc", "llp", "llc", "corp", "co", "the", "and", "holdings", "group", "singapore"}
+)
+REDACTED_NAME = "[NAME]"
+
+
+def _name_variants(names: Iterable[Optional[str]]) -> list[str]:
+    """Full names plus their individual words (e.g. 'Acme Pte Ltd' -> 'Acme'), longest first."""
+    variants: set[str] = set()
+    for name in names:
+        if not name or not name.strip():
+            continue
+        variants.add(name.strip())
+        for word in re.findall(r"\w+", name):
+            if len(word) >= 3 and word.lower() not in _NAME_STOPWORDS:
+                variants.add(word)
+    return sorted(variants, key=lambda v: (-len(v), v.lower()))
+
+
+def _scrub(text: Optional[str], variants: list[str]) -> Optional[str]:
+    """Redact emails/phones, then any occurrence of the supplied names (case-insensitive)."""
+    cleaned = redact_text(text)
+    if cleaned is None:
+        return None
+    for variant in variants:
+        cleaned = re.sub(rf"(?<!\w){re.escape(variant)}(?!\w)", REDACTED_NAME, cleaned, flags=re.IGNORECASE)
+    return cleaned
+
+
 def _redacted_payload(normalized: dict, baseline: BaselineMetrics, analogues: list[Analogue], deal: dict) -> dict:
-    """Send only what the model needs. Names, agents and raw IDs stay local."""
+    """Send only what the model needs. Names, agents and raw IDs stay local.
+
+    The payload is a strict whitelist: account, agent and deal names, and the real
+    names of historical deals, are never included. Free-text notes are scrubbed of
+    emails, phone numbers and any name supplied on this deal. Industry is a category
+    label and is only checked for emails and phone numbers.
+    """
+    variants = _name_variants(deal.get(f) for f in _NAME_FIELDS)
     return {
         "new_deal": {
-            "industry": normalized.get("industry"),
+            "industry": redact_text(normalized.get("industry")),
             "size_sqft": normalized.get("size_sqft"),
             "size_tier": normalized.get("size_tier"),
             "lease_term_months": normalized.get("lease_term_months"),
             "gross_signing_rent_psf": normalized.get("gross_signing_rent_psf"),
             "property_alias": alias("PROPERTY", deal.get("property_name")),
-            "notes": redact_text(deal.get("notes")),
+            "notes": _scrub(deal.get("notes"), variants),
         },
+        "has_outcome_data": baseline.win_rate_pct is not None,
         "baseline": baseline.model_dump(),
         "analogues": [
             {
@@ -158,32 +233,65 @@ def _redacted_payload(normalized: dict, baseline: BaselineMetrics, analogues: li
 
 def _effort_tier(median_fee: Optional[float]) -> tuple[str, int]:
     if median_fee is not None and median_fee >= HIGH_VALUE_FEE_SGD:
-        return "Tier 1 - High Touch", 25
+        return "Tier 1 - High Touch", TIER1_MAX_HOURS
     if median_fee is not None and median_fee >= MID_VALUE_FEE_SGD:
-        return "Tier 2 - Standard", 12
-    return "Tier 3 - Light", 6
+        return "Tier 2 - Standard", TIER2_MAX_HOURS
+    return "Tier 3 - Light", TIER3_MAX_HOURS
+
+
+def _pursue_recommendation(baseline: BaselineMetrics) -> Optional[str]:
+    """Derived only from observed WON/LOST outcomes; None when there is too little evidence."""
+    win = baseline.win_rate_pct
+    if win is None or baseline.outcome_coverage < MIN_DECIDED_OUTCOMES_FOR_PURSUE:
+        return None
+    if win >= PURSUE_HIGH_PRIORITY_WIN_PCT:
+        return "PURSUE_HIGH_PRIORITY"
+    if win >= PURSUE_WIN_PCT:
+        return "PURSUE"
+    return "NURTURE"
 
 
 def _confidence(baseline: BaselineMetrics) -> str:
-    if baseline.n_comparables >= 20 and baseline.outcome_coverage >= 20:
+    # The fee estimate is the headline number, so count only comparables that carry a fee.
+    usable = min(baseline.n_comparables, baseline.n_with_fee)
+    if usable >= HIGH_CONFIDENCE_MIN_COMPARABLES and baseline.outcome_coverage >= HIGH_CONFIDENCE_MIN_OUTCOMES:
         return "HIGH"
-    if baseline.n_comparables >= 10:
+    if usable >= MEDIUM_CONFIDENCE_MIN_COMPARABLES:
         return "MEDIUM"
     return "LOW"
+
+
+_WIN_CLAIM_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*(?:%|percent)[^.\n]{0,60}(?:win|chance|probab|likel|success)"
+    r"|(?:win|chance|probab|likel|success)[^.\n]{0,60}\d+(?:\.\d+)?\s*(?:%|percent)",
+    re.IGNORECASE,
+)
+
+
+def _unsupported_win_claim(narrative: Narrative) -> bool:
+    """True if the narrative quotes a win percentage. Only used when no outcomes exist."""
+    texts = [narrative.winning_strategy, *narrative.key_risks_and_mitigations, *narrative.recommended_resources]
+    return any(_WIN_CLAIM_RE.search(text) for text in texts)
 
 
 def _data_gaps(normalized: dict, baseline: BaselineMetrics) -> list[str]:
     gaps = []
     if baseline.win_rate_pct is None:
         gaps.append("No WON/LOST outcomes in source data: win probability unavailable.")
+    elif baseline.outcome_coverage < MIN_DECIDED_OUTCOMES_FOR_PURSUE:
+        gaps.append(
+            f"Only {baseline.outcome_coverage} decided outcomes: win rate is unreliable, no pursue recommendation given."
+        )
     gaps.append("No deal-created or first-contact date in source: sales cycle and timeframe unavailable.")
     gaps.append("No qualification data (budget, authority, need, timeline): fit score unavailable.")
     if normalized.get("size_sqft") is None:
         gaps.append("Size not provided: size-tier comparables skipped.")
     if normalized.get("lease_term_months") is None:
         gaps.append("Lease term not provided.")
-    if baseline.n_comparables < 5:
+    if baseline.n_comparables < MIN_COMPARABLES:
         gaps.append(f"Only {baseline.n_comparables} comparables matched: estimates are low-confidence.")
+    elif baseline.n_with_fee < MIN_COMPARABLES:
+        gaps.append(f"Only {baseline.n_with_fee} comparables have fee data: fee estimate is low-confidence.")
     return gaps
 
 
@@ -193,43 +301,49 @@ def build_graph(session_factory):
     def validate_input(state: WorkflowState) -> dict:
         deal = DealInput.model_validate(state["deal"])
         industry = (deal.industry or "").strip() or None
-        tier = size_tier(deal.size_sqft)
+        # Zero is not a real size or term; treat it as missing rather than as the smallest tier/band.
+        size_sqft = deal.size_sqft or None
+        lease_term_months = deal.lease_term_months or None
+        rent_psf = deal.gross_signing_rent_psf or None
         normalized = {
+            "deal_name": deal.deal_name,
             "industry": industry,
-            "size_sqft": deal.size_sqft,
-            "size_tier": tier,
-            "lease_term_months": deal.lease_term_months,
-            "lease_term_band": term_band(deal.lease_term_months),
-            "gross_signing_rent_psf": deal.gross_signing_rent_psf,
+            "size_sqft": size_sqft,
+            "size_tier": size_tier(size_sqft),
+            "lease_term_months": lease_term_months,
+            "lease_term_band": term_band(lease_term_months),
+            "gross_signing_rent_psf": rent_psf,
             "property_name": deal.property_name,
         }
         warnings = list(state.get("warnings", []))
-        if deal.size_sqft is None:
+        if size_sqft is None:
             warnings.append("Size not provided: size-tier comparables skipped.")
         return {"normalized": normalized, "warnings": warnings}
 
     def sql_baseline(state: WorkflowState) -> dict:
         with session_factory() as session:
             deals = session.scalars(select(Deal)).all()
-        metrics = compute_baseline(deals, state["normalized"], exclude_name=state["deal"].get("deal_name"))
+        normalized = _need(state, "normalized")
+        metrics = compute_baseline(deals, normalized, exclude_name=normalized.get("deal_name"))
         return {"baseline": metrics.model_dump()}
 
     def analogue_retrieval(state: WorkflowState) -> dict:
         with session_factory() as session:
             deals = session.scalars(select(Deal)).all()
+        normalized = _need(state, "normalized")
         analogues = find_analogues(
             deals,
-            state["normalized"],
-            k=5,
-            exclude_name=state["deal"].get("deal_name"),
+            normalized,
+            k=ANALOGUE_K,
+            exclude_name=normalized.get("deal_name"),
         )
         alias_map = {f"HIST-{i:02d}": a.deal_name for i, a in enumerate(analogues, start=1)}
         return {"analogues": [a.model_dump() for a in analogues], "alias_map": alias_map}
 
     def llm_synthesis(state: WorkflowState) -> dict:
-        normalized = state["normalized"]
-        baseline = BaselineMetrics(**state["baseline"])
-        analogues = [Analogue(**a) for a in state["analogues"]]
+        normalized = _need(state, "normalized")
+        baseline = BaselineMetrics(**_need(state, "baseline"))
+        analogues = [Analogue(**a) for a in _need(state, "analogues")]
         warnings = list(state.get("warnings", []))
         selection = state["llm"]
         provider, model = selection["provider"], selection.get("model")
@@ -246,6 +360,8 @@ def build_graph(session_factory):
             prompt = ChatPromptTemplate.from_messages([("system", SYSTEM_PROMPT), ("human", HUMAN_PROMPT)])
             chain = prompt | chat_model.with_structured_output(Narrative)
             result: Narrative = chain.invoke({"payload": json.dumps(payload, indent=2, default=str)})
+            if baseline.win_rate_pct is None and _unsupported_win_claim(result):
+                raise ValueError("narrative quoted a win percentage although no outcome data exists")
             return {
                 "narrative": result.model_dump(),
                 "narrative_source": "llm",
@@ -263,10 +379,10 @@ def build_graph(session_factory):
 
     def assemble_scorecard(state: WorkflowState) -> dict:
         deal = state["deal"]
-        normalized = state["normalized"]
-        baseline = BaselineMetrics(**state["baseline"])
-        analogues = [Analogue(**a) for a in state["analogues"]]
-        narrative = state["narrative"]
+        normalized = _need(state, "normalized")
+        baseline = BaselineMetrics(**_need(state, "baseline"))
+        analogues = [Analogue(**a) for a in _need(state, "analogues")]
+        narrative = _need(state, "narrative")
         analogue_names = [a.deal_name for a in analogues]
 
         referenced: list[str] = []
@@ -275,20 +391,14 @@ def build_graph(session_factory):
             if name in analogue_names and name not in referenced:
                 referenced.append(name)
         if not referenced:
-            referenced = analogue_names[:3]
+            referenced = analogue_names[:MAX_REFERENCED_DEALS]
 
+        # Win probability is copied from observed outcomes only; it is None, never a guess, without them.
         win = baseline.win_rate_pct
-        if win is None:
-            pursue = None
-        elif win >= PURSUE_HIGH_PRIORITY_WIN_PCT:
-            pursue = "PURSUE_HIGH_PRIORITY"
-        elif win >= PURSUE_WIN_PCT:
-            pursue = "PURSUE"
-        else:
-            pursue = "NURTURE"
+        pursue = _pursue_recommendation(baseline)
 
         tier, hours = _effort_tier(baseline.median_fee_sgd)
-        deal_id = deal.get("deal_name") or "NEW-" + hashlib.sha1(
+        deal_id = normalized.get("deal_name") or "NEW-" + hashlib.sha1(
             json.dumps(deal, sort_keys=True, default=str).encode("utf-8")
         ).hexdigest()[:8]
         llm_selection = state["llm"]
@@ -324,7 +434,7 @@ def build_graph(session_factory):
             evidence=Evidence(baseline=baseline, analogues=analogues),
             data_gaps=_data_gaps(normalized, baseline),
             warnings=state.get("warnings", []),
-            narrative_source=state["narrative_source"],
+            narrative_source=_need(state, "narrative_source"),
             llm_provider=llm_selection["provider"],
             llm_model=llm_selection.get("model"),
         )
