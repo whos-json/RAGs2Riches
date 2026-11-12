@@ -42,26 +42,30 @@ def main() -> int:
     env["INGEST_DIR"] = tmp
     env["PYTHONUNBUFFERED"] = "1"
 
-    proc = subprocess.Popen(
-        cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace"
-    )
+    # Windowed exes have no stdout, so discover the port by probing instead of parsing output.
+    log_path = Path(tmp, "server.log")
+    log_file = open(log_path, "w", encoding="utf-8")
+    proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=log_file, stderr=subprocess.STDOUT)
     failures: list[str] = []
-    output: list[str] = []
     try:
         port = None
-        deadline = time.time() + 120
+        deadline = time.time() + 180
         while time.time() < deadline and port is None:
-            line = proc.stdout.readline()
-            if not line:
-                if proc.poll() is not None:
-                    break
-                continue
-            output.append(line)
-            match = re.search(r"http://127\.0\.0\.1:(\d+)/", line)
-            if match:
-                port = int(match.group(1))
+            if proc.poll() is not None:
+                break
+            for candidate in range(8000, 8011):
+                try:
+                    body = fetch(f"http://127.0.0.1:{candidate}/api/meta", timeout=15)[1]
+                    if '"providers"' in body:
+                        port = candidate
+                        break
+                except Exception:
+                    continue
+            else:
+                time.sleep(1)
         if port is None:
-            print("FAIL: server did not announce a port\n" + "".join(output))
+            log_file.flush()
+            print("FAIL: server did not become reachable\n" + log_path.read_text(encoding="utf-8", errors="replace")[-2000:])
             return 1
         base = f"http://127.0.0.1:{port}"
 
@@ -100,11 +104,16 @@ def main() -> int:
                 failures.append("win probability fabricated without outcome data")
             print("scorecard tier:", card["effort_allocation"]["tier"], "| comparables:", card["evidence"]["baseline"]["n_comparables"])
     finally:
-        proc.terminate()
+        # A onefile exe is a bootloader plus a child process: kill the whole tree.
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+        else:
+            proc.terminate()
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+        log_file.close()
 
     if failures:
         print("SMOKE FAILED:\n - " + "\n - ".join(failures))

@@ -53,6 +53,27 @@ def _fee_quartiles(fees: list[float]) -> tuple[Optional[float], Optional[float]]
     return round(q1, 2), round(q3, 2)
 
 
+def fee_percentile(fees: Iterable[float], value: float) -> Optional[float]:
+    """Percent (0-100, 1 dp) of usable comparable fees at or below ``value``.
+
+    Mid-rank convention: fees strictly below count fully, equal fees count half.
+    Non-positive and non-finite fees are ignored. None when no usable fee exists
+    or ``value`` is not a finite number.
+    """
+    usable = _positive(fees)
+    if not usable:
+        return None
+    try:
+        target = float(value)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(value, bool) or not math.isfinite(target):
+        return None
+    below = sum(1 for f in usable if f < target)
+    equal = sum(1 for f in usable if f == target)
+    return round(100 * (below + 0.5 * equal) / len(usable), 1)
+
+
 def compute_baseline(
     deals: list[Deal], normalized: dict, exclude_name: Optional[str] = None
 ) -> BaselineMetrics:
@@ -102,6 +123,8 @@ def compute_baseline(
         mean_fee_sgd=round(mean(fees), 2) if fees else None,
         fee_p25_sgd=fee_p25,
         fee_p75_sgd=fee_p75,
+        fee_min_sgd=round(min(fees), 2) if fees else None,
+        fee_max_sgd=round(max(fees), 2) if fees else None,
         median_size_sqft=round(median(sizes), 1) if sizes else None,
         median_lease_term_months=round(median(terms), 1) if terms else None,
         outcome_coverage=decided,

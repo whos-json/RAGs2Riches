@@ -3,189 +3,308 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Deal Intelligence &amp; Sales Copilot</title>
+  <title>Deal Copilot - Deal Intelligence &amp; Sales Copilot</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%230b1f3a'/%3E%3Crect x='5' y='17' width='6' height='10' fill='%23ffa11a'/%3E%3Crect x='13' y='11' width='6' height='16' fill='%23ffa11a'/%3E%3Crect x='21' y='5' width='6' height='22' fill='%23ffd84a'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="desktop">
-    <section class="window" aria-labelledby="window-title">
-      <header class="title-bar">
-        <span id="window-title" class="title-text">Deal Intelligence &amp; Sales Copilot</span>
-      </header>
+  <a class="skip-link" href="#main">Skip to main content</a>
 
-      <nav class="menu-bar" aria-label="Application">
-        <button type="button" class="menu-item" id="menu-new">New deal</button>
-        <button type="button" class="menu-item" id="menu-about">About</button>
+  <header class="nav-strip">
+    <div class="nav-inner">
+      <h1 class="wordmark">
+        <span class="wordmark-mark" aria-hidden="true"></span>
+        <span class="wordmark-text">Deal<span class="wordmark-accent">Copilot</span></span>
+        <span class="wordmark-tag">Deal Intelligence &amp; Sales Copilot</span>
+      </h1>
+      <nav class="nav-links" aria-label="Sections">
+        <a class="nav-link" href="#main" aria-current="page">Deal Desk</a>
+        <a class="nav-link" href="#top5-box" data-nav="analogues">Analogues</a>
+        <a class="nav-link" href="#playbook-box" data-nav="playbook">Playbook</a>
+        <button type="button" class="nav-link nav-toggle" id="sound-toggle">Sound: off</button>
       </nav>
+    </div>
+  </header>
 
-      <div class="window-body">
-        <div class="layout">
-          <fieldset class="groupbox form-panel">
-            <legend>New deal</legend>
-            <form id="deal-form" novalidate>
-              <div class="field-row">
-                <label for="account_name">Account name</label>
-                <input id="account_name" name="account_name" type="text" maxlength="120" required>
-              </div>
-              <div class="field-row">
-                <label for="industry">Industry</label>
-                <select id="industry" name="industry" required></select>
-              </div>
-              <div class="field-row">
-                <label for="employees">Employees</label>
-                <input id="employees" name="employees" type="number" min="1" step="1" required>
-              </div>
-              <div class="field-row">
-                <label for="deal_value_usd">Deal value (USD)</label>
-                <input id="deal_value_usd" name="deal_value_usd" type="number" min="1" step="1000" required>
-              </div>
-              <div class="field-row">
-                <label for="stage">Stage</label>
-                <select id="stage" name="stage" required></select>
-              </div>
-              <div class="field-row">
-                <label for="expected_close_days">Expected close (days)</label>
-                <input id="expected_close_days" name="expected_close_days" type="number" min="1" step="1" required>
-              </div>
-              <div class="field-row">
-                <span aria-hidden="true"></span>
-                <div class="checkbox">
-                  <input id="budget_confirmed" name="budget_confirmed" type="checkbox">
-                  <label for="budget_confirmed">Budget confirmed</label>
-                </div>
-              </div>
-              <div class="field-row">
-                <label for="sponsor">Sponsor access</label>
-                <select id="sponsor" name="sponsor" required></select>
-              </div>
-              <div class="field-row">
-                <label for="need">Need urgency</label>
-                <select id="need" name="need" required></select>
-              </div>
-              <div class="field-row field-column">
-                <label for="notes">Notes (pain points, stakeholders)</label>
-                <textarea id="notes" name="notes" rows="5" maxlength="2000"></textarea>
-              </div>
-              <div class="button-row">
-                <button type="submit" class="btn default" id="evaluate-btn">Evaluate</button>
-                <button type="reset" class="btn" id="reset-btn">Clear</button>
-              </div>
-            </form>
-          </fieldset>
+  <main id="main" class="portal" tabindex="-1">
 
-          <section class="results" aria-label="Evaluation results">
-            <div id="empty-state" class="sunken-panel empty-state">
-              <p>No evaluation yet. Fill in the deal and press Evaluate.</p>
+    <!-- LEFT RAIL: form -->
+    <section class="rail-left box box-form" aria-labelledby="form-title">
+      <div class="box-head head-yellow"><h2 id="form-title">New deal</h2></div>
+      <form id="deal-form" class="box-body form-body" novalidate autocomplete="off">
+        <div class="field">
+          <label for="account_name">Account name</label>
+          <input id="account_name" name="account_name" type="text" maxlength="120" required
+                 aria-required="true" aria-describedby="account_name-error">
+          <p class="field-error" id="account_name-error"></p>
+        </div>
+
+        <div class="field">
+          <label for="industry">Industry</label>
+          <select id="industry" name="industry" required></select>
+        </div>
+
+        <div class="field">
+          <label for="employees">Employees</label>
+          <input id="employees" name="employees" type="number" inputmode="numeric" min="1" step="1" required
+                 aria-required="true" aria-describedby="employees-hint employees-error">
+          <p class="hint" id="employees-hint">Whole number, company headcount.</p>
+          <p class="field-error" id="employees-error"></p>
+        </div>
+
+        <div class="field">
+          <label for="deal_value_usd">Deal value (USD)</label>
+          <input id="deal_value_usd" name="deal_value_usd" type="number" inputmode="numeric" min="0" step="1000" required
+                 aria-required="true" aria-describedby="deal_value_usd-hint deal_value_usd-error">
+          <p class="hint" id="deal_value_usd-hint">Total contract value, for example 95000.</p>
+          <p class="field-error" id="deal_value_usd-error"></p>
+        </div>
+
+        <div class="field">
+          <label for="stage">Stage</label>
+          <select id="stage" name="stage" required></select>
+        </div>
+
+        <div class="field">
+          <label for="expected_close_days">Expected close (days)</label>
+          <input id="expected_close_days" name="expected_close_days" type="number" inputmode="numeric" min="1" step="1" required
+                 aria-required="true" aria-describedby="expected_close_days-hint expected_close_days-error">
+          <p class="hint" id="expected_close_days-hint">Whole days from today.</p>
+          <p class="field-error" id="expected_close_days-error"></p>
+        </div>
+
+        <div class="field field-check">
+          <input id="budget_confirmed" name="budget_confirmed" type="checkbox">
+          <label for="budget_confirmed">Budget confirmed</label>
+        </div>
+
+        <div class="field">
+          <label for="sponsor">Sponsor access</label>
+          <select id="sponsor" name="sponsor" required></select>
+        </div>
+
+        <div class="field">
+          <label for="need">Need urgency</label>
+          <select id="need" name="need" required></select>
+        </div>
+
+        <div class="field">
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" rows="5" maxlength="2000" aria-describedby="notes-hint"></textarea>
+          <p class="hint" id="notes-hint">Pain points and stakeholders. Used to find similar past deals. <span class="counter" id="notes-count" aria-hidden="true">0 / 2,000</span></p>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="evaluate-btn">
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span id="evaluate-label">Evaluate</span>
+          </button>
+          <div class="form-actions-row">
+            <button type="button" class="btn" id="sample-btn">Load sample deal</button>
+            <button type="button" class="btn" id="clear-btn">Clear</button>
+          </div>
+        </div>
+
+        <p class="status" id="status" role="status">Ready.</p>
+      </form>
+    </section>
+
+    <!-- CENTRE: hero + 2x2 grid -->
+    <div class="centre">
+      <div id="error-region" role="alert"></div>
+
+      <section id="loading" class="box" aria-labelledby="loading-title" hidden>
+        <div class="box-head head-orange"><h2 id="loading-title">Analysing deal</h2></div>
+        <div class="box-body">
+          <ol class="steps" id="steps">
+            <li>Step 1: Baseline from past deals</li>
+            <li>Step 2: Finding the closest analogues</li>
+            <li>Step 3: Building the scorecard</li>
+          </ol>
+          <div class="indeterminate" aria-hidden="true"><span></span></div>
+        </div>
+      </section>
+
+      <section id="empty-state" class="box" aria-labelledby="empty-title">
+        <div class="box-head head-blue"><h2 id="empty-title">Deal scorecard</h2></div>
+        <div class="box-body empty-body">
+          <p class="empty-lead"><span class="nudge" aria-hidden="true">&#9664;</span> No evaluation yet.</p>
+          <p>Fill in the deal on the left and press <strong>Evaluate</strong>, or use <strong>Load sample deal</strong> to try it out.</p>
+          <h3 class="empty-sub">How it works</h3>
+          <ol class="how-list">
+            <li><strong>Baseline.</strong> We look up win rate, deal size and sales cycle for similar past deals.</li>
+            <li><strong>Analogues.</strong> We find the five past deals closest to yours, won and lost.</li>
+            <li><strong>Scorecard.</strong> We combine both into a fit score, win probability, effort tier and playbook.</li>
+          </ol>
+        </div>
+      </section>
+
+      <div id="results" hidden>
+        <section id="hero" class="box hero" aria-labelledby="hero-title">
+          <div class="box-head head-blue"><h2 id="hero-title">Deal scorecard</h2></div>
+          <div class="box-body hero-body">
+            <div class="hero-top">
+              <div class="hero-id">
+                <p class="hero-account" id="hero-account"></p>
+                <p class="hero-meta">
+                  <span class="mono" id="hero-deal-id"></span>
+                  <span class="chip" id="hero-industry"></span>
+                  <span class="chip" id="hero-stage"></span>
+                </p>
+              </div>
+              <button type="button" class="btn btn-small" id="copy-btn">Copy summary</button>
             </div>
 
-            <div id="results" hidden>
-              <div class="results-grid">
-                <fieldset class="groupbox">
-                  <legend>Qualification</legend>
-                  <p class="recommendation"><span id="recommendation" class="badge"></span></p>
-                  <div class="meter-row">
-                    <label for="fit-bar">Fit score</label>
-                    <progress id="fit-bar" max="100" value="0"></progress>
-                    <span id="fit-value" class="mono"></span>
-                  </div>
-                  <table class="list-view">
-                    <caption class="sr-only">Qualification factors</caption>
+            <p class="hero-rec">
+              <span class="label">Recommendation</span>
+              <span id="hero-rec" class="badge badge-lg"></span>
+            </p>
+
+            <div class="hero-stats">
+              <div class="stat">
+                <p class="label">Fit score</p>
+                <p class="numeral"><span id="hero-fit"></span><span class="numeral-unit"> / 100</span></p>
+                <div class="seg-bar" aria-hidden="true"><div class="seg-fill" id="hero-fit-bar"></div></div>
+              </div>
+              <div class="stat">
+                <p class="label">Win probability</p>
+                <p class="numeral"><span id="hero-win"></span></p>
+                <div class="seg-bar" aria-hidden="true"><div class="seg-fill" id="hero-win-bar"></div></div>
+              </div>
+            </div>
+
+            <dl class="spec hero-facts">
+              <div class="spec-row"><dt>Expected value</dt><dd id="hero-ev"></dd></div>
+              <div class="spec-row"><dt>Timeframe</dt><dd id="hero-time"></dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <div class="grid">
+          <section class="box" aria-labelledby="qual-title">
+            <div class="box-head head-blue"><h2 id="qual-title">Qualification</h2></div>
+            <div class="box-body">
+              <div class="table-scroll" role="region" aria-label="Qualification factors table" tabindex="0">
+                <table class="data">
+                  <caption class="sr-only">Qualification factors and points</caption>
+                  <thead>
+                    <tr><th scope="col">Factor</th><th scope="col">Assessment</th><th scope="col" class="num">Points</th></tr>
+                  </thead>
+                  <tbody id="factor-rows"></tbody>
+                  <tfoot>
+                    <tr><th scope="row" colspan="2">Fit score</th><td class="num" id="fit-total"></td></tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p class="divider-top"><span class="label">Recommendation</span> <span id="qual-rec" class="badge"></span></p>
+              <p class="label divider-top">Where to improve</p>
+              <p id="qual-gap"></p>
+            </div>
+          </section>
+
+          <section class="box" aria-labelledby="est-title">
+            <div class="box-head head-blue"><h2 id="est-title">Estimates</h2></div>
+            <div class="box-body">
+              <dl class="spec">
+                <div class="spec-row"><dt>Win probability</dt><dd id="est-win"></dd></div>
+                <div class="spec-row"><dt>Expected value</dt><dd id="est-ev"></dd></div>
+                <div class="spec-row"><dt>Timeframe</dt><dd id="est-time"></dd></div>
+                <div class="spec-row"><dt>Confidence</dt><dd id="est-conf"></dd></div>
+              </dl>
+              <p class="label divider-top">How this was calculated</p>
+              <dl class="spec">
+                <div class="spec-row"><dt>Historical win rate</dt><dd id="est-hist"></dd></div>
+                <div class="spec-row"><dt>Fit score</dt><dd id="est-fit"></dd></div>
+                <div class="spec-row"><dt>Similar deals used</dt><dd id="est-sample"></dd></div>
+              </dl>
+              <p class="hint" id="est-note"></p>
+            </div>
+          </section>
+
+          <section class="box" aria-labelledby="eff-title">
+            <div class="box-head head-blue"><h2 id="eff-title">Effort allocation</h2></div>
+            <div class="box-body">
+              <dl class="spec">
+                <div class="spec-row"><dt>Tier</dt><dd id="eff-tier"></dd></div>
+                <div class="spec-row"><dt>Max hours</dt><dd id="eff-hours"></dd></div>
+              </dl>
+              <p class="label divider-top" id="resources-label">Resources</p>
+              <ul id="resources" class="checklist" aria-labelledby="resources-label"></ul>
+              <p class="progress-note" id="eff-progress" role="status"></p>
+              <p class="hint">Checkboxes are a local to-do list. They are not saved.</p>
+            </div>
+          </section>
+
+          <section id="playbook-box" class="box" aria-labelledby="play-title">
+            <div class="box-head head-blue"><h2 id="play-title">Closing playbook</h2></div>
+            <div class="box-body">
+              <div class="tabs" role="tablist" aria-label="Playbook sections">
+                <button type="button" class="tab" role="tab" id="tab-strategy" aria-controls="panel-strategy" aria-selected="true" tabindex="0">Strategy</button>
+                <button type="button" class="tab" role="tab" id="tab-risks" aria-controls="panel-risks" aria-selected="false" tabindex="-1">Risks</button>
+                <button type="button" class="tab" role="tab" id="tab-analogues" aria-controls="panel-analogues" aria-selected="false" tabindex="-1">Analogues</button>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" id="panel-strategy" aria-labelledby="tab-strategy" tabindex="0">
+                <p id="strategy"></p>
+                <p class="hint divider-top">Based on:</p>
+                <ul id="referenced" class="chip-list" aria-label="Referenced historical deals"></ul>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" id="panel-risks" aria-labelledby="tab-risks" tabindex="0" hidden>
+                <ul id="risks" class="risk-list"></ul>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" id="panel-analogues" aria-labelledby="tab-analogues" hidden>
+                <div class="table-scroll" role="region" aria-label="Closest historical deals table" tabindex="0">
+                  <table class="data">
+                    <caption class="sr-only">Closest historical deals. Select a deal name to see its details below the table.</caption>
                     <thead>
-                      <tr><th scope="col">Factor</th><th scope="col">Assessment</th><th scope="col">Points</th></tr>
+                      <tr><th scope="col">Deal</th><th scope="col">Outcome</th><th scope="col" class="num">Match</th></tr>
                     </thead>
-                    <tbody id="factor-rows"></tbody>
+                    <tbody id="analogue-rows"></tbody>
                   </table>
-                </fieldset>
-
-                <fieldset class="groupbox">
-                  <legend>Estimates</legend>
-                  <div class="meter-row">
-                    <label for="win-bar">Win probability</label>
-                    <progress id="win-bar" max="100" value="0"></progress>
-                    <span id="win-value" class="mono"></span>
-                  </div>
-                  <div class="field-row">
-                    <label for="expected-value">Expected value</label>
-                    <input id="expected-value" class="readonly" type="text" readonly>
-                  </div>
-                  <div class="field-row">
-                    <label for="timeframe">Timeframe</label>
-                    <input id="timeframe" class="readonly" type="text" readonly>
-                  </div>
-                  <div class="field-row">
-                    <label for="confidence">Confidence</label>
-                    <input id="confidence" class="readonly" type="text" readonly>
-                  </div>
-                  <p class="hint">Expected value = deal value x win probability.</p>
-                </fieldset>
-
-                <fieldset class="groupbox">
-                  <legend>Effort allocation</legend>
-                  <div class="field-row">
-                    <label for="tier">Tier</label>
-                    <input id="tier" class="readonly" type="text" readonly>
-                  </div>
-                  <div class="field-row">
-                    <label for="max-hours">Max hours</label>
-                    <input id="max-hours" class="readonly" type="text" readonly>
-                  </div>
-                  <p class="hint">Checkboxes are a local to-do list. They are not saved.</p>
-                  <ul id="resources" class="checklist"></ul>
-                </fieldset>
-
-                <fieldset class="groupbox">
-                  <legend>Closing playbook</legend>
-                  <div class="tabs" role="tablist" aria-label="Playbook sections">
-                    <button type="button" class="tab" role="tab" id="tab-strategy" aria-controls="panel-strategy" aria-selected="true" tabindex="0">Strategy</button>
-                    <button type="button" class="tab" role="tab" id="tab-risks" aria-controls="panel-risks" aria-selected="false" tabindex="-1">Risks</button>
-                    <button type="button" class="tab" role="tab" id="tab-analogues" aria-controls="panel-analogues" aria-selected="false" tabindex="-1">Analogues</button>
-                  </div>
-                  <div class="tab-panel" role="tabpanel" id="panel-strategy" aria-labelledby="tab-strategy">
-                    <p id="strategy"></p>
-                  </div>
-                  <div class="tab-panel" role="tabpanel" id="panel-risks" aria-labelledby="tab-risks" hidden>
-                    <ul id="risks" class="plain-list"></ul>
-                  </div>
-                  <div class="tab-panel" role="tabpanel" id="panel-analogues" aria-labelledby="tab-analogues" hidden>
-                    <div class="sunken-panel table-wrap">
-                      <table class="list-view">
-                        <caption class="sr-only">Closest historical deals</caption>
-                        <thead>
-                          <tr><th scope="col">Deal</th><th scope="col">Account</th><th scope="col">Outcome</th><th scope="col">Match</th></tr>
-                        </thead>
-                        <tbody id="analogue-rows"></tbody>
-                      </table>
-                    </div>
-                  </div>
-                </fieldset>
+                </div>
+                <div id="analogue-detail" class="detail" tabindex="-1" aria-label="Selected analogue details"></div>
               </div>
             </div>
           </section>
         </div>
-
-        <div class="status-bar">
-          <p class="status-field status-message" id="status-message" role="status">Ready</p>
-          <p class="status-field" id="status-fit">Fit: -</p>
-          <p class="status-field" id="status-win">Win: -</p>
-          <p class="status-field" id="status-confidence">Confidence: -</p>
-          <p class="status-field" id="status-analogues">Analogues: -</p>
-        </div>
       </div>
-    </section>
+    </div>
+
+    <!-- RIGHT RAIL: top 5 + baseline -->
+    <aside class="rail-right" aria-label="Historical context">
+      <section id="top5-box" class="box" aria-labelledby="top5-title">
+        <div class="box-head head-orange"><h2 id="top5-title">Top 5 analogues</h2></div>
+        <div class="box-body">
+          <p id="top5-empty" class="empty-note">Evaluate a deal to see the closest historical matches.</p>
+          <ol id="top5-list" class="rank-list" hidden></ol>
+          <p id="top5-hint" class="hint" hidden>Select a deal to open its details in the playbook.</p>
+        </div>
+      </section>
+
+      <section class="box" aria-labelledby="base-title">
+        <div class="box-head head-blue"><h2 id="base-title">Baseline</h2></div>
+        <div class="box-body">
+          <p id="base-empty" class="empty-note">Quick facts about similar past deals appear here.</p>
+          <dl id="base-list" class="spec" hidden>
+            <div class="spec-row"><dt>Basis</dt><dd id="base-basis"></dd></div>
+            <div class="spec-row"><dt>Sample size</dt><dd id="base-sample"></dd></div>
+            <div class="spec-row"><dt>Historical win rate</dt><dd id="base-win"></dd></div>
+            <div class="spec-row"><dt>Median deal value</dt><dd id="base-value"></dd></div>
+            <div class="spec-row"><dt>Median cycle</dt><dd id="base-cycle"></dd></div>
+          </dl>
+        </div>
+      </section>
+    </aside>
   </main>
 
-  <dialog id="about-dialog" aria-labelledby="about-title">
-    <header class="title-bar">
-      <span id="about-title" class="title-text">About</span>
-    </header>
-    <div class="window-body">
-      <p><strong>Deal Intelligence &amp; Sales Copilot</strong></p>
-      <p>Local prototype. Scores come from a rule engine run over sample historical deals, not live CRM data.</p>
-      <form method="dialog" class="button-row">
-        <button type="submit" class="btn default">OK</button>
-      </form>
-    </div>
-  </dialog>
+  <footer class="site-footer">
+    <p class="notice"><strong>Sample data notice:</strong> scores come from a rule engine run over sample historical deals, not live CRM data. Treat them as guidance for discussion.</p>
+    <p class="footer-meta">Deal Copilot - local prototype</p>
+  </footer>
+
+  <div class="toasts" id="toasts" aria-hidden="true"></div>
 
   <script src="app.js"></script>
 </body>

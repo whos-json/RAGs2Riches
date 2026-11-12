@@ -52,6 +52,8 @@ class BaselineMetrics(BaseModel):
     mean_fee_sgd: Optional[float]
     fee_p25_sgd: Optional[float] = None
     fee_p75_sgd: Optional[float] = None
+    fee_min_sgd: Optional[float] = None
+    fee_max_sgd: Optional[float] = None
     median_size_sqft: Optional[float]
     median_lease_term_months: Optional[float]
     outcome_coverage: int
@@ -66,6 +68,7 @@ class Analogue(BaseModel):
     gross_fee_sgd: Optional[float]
     outcome: Optional[str]
     similarity: float
+    matched_on: list[str] = Field(default_factory=list)
 
 
 class Narrative(BaseModel):

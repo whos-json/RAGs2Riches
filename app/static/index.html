@@ -4,454 +4,1045 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>RAGS2Riches</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230b1f3a'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23ffa11a' font-family='Arial' font-weight='900'%3ER%3C/text%3E%3C/svg%3E" />
 <style>
-  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
-          --accent:#4da3ff; --ok:#3fb950; --err:#f85149; --warn:#d29922; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--text); }
-  header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:baseline; gap:16px; }
-  header h1 { font-size:18px; margin:0; }
-  header span { color:var(--muted); font-size:13px; }
-  main { display:grid; grid-template-columns: 330px 1fr; gap:16px; padding:16px; }
-  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px; }
-  .panel h2 { font-size:14px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
-  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
-  input, select, textarea { width:100%; padding:7px 8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font:inherit; }
-  textarea { min-height:60px; resize:vertical; }
-  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .hint { font-size:11px; color:var(--muted); margin-top:3px; }
-  button { margin-top:12px; width:100%; padding:9px; border:0; border-radius:6px; background:var(--accent); color:#06121f; font-weight:600; cursor:pointer; }
-  button.secondary { background:transparent; color:var(--accent); border:1px solid var(--border); font-weight:500; }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  .status-pill { display:inline-block; font-size:11px; padding:1px 7px; border-radius:99px; border:1px solid var(--border); margin-left:6px; }
-  .status-pill.up { color:var(--ok); border-color:var(--ok); }
-  .status-pill.down { color:var(--warn); border-color:var(--warn); }
-  #diagram-wrap { overflow-x:auto; }
-  svg#diagram { width:100%; min-width:900px; height:auto; }
-  .node rect { fill:#1c2330; stroke:#3a4150; stroke-width:2; rx:10; transition: all .3s; }
-  .node.running rect { fill:#17314f; stroke:var(--accent); animation: pulse 1s ease-in-out infinite; }
-  .node.done rect { fill:#14301f; stroke:var(--ok); }
-  .node.error rect { fill:#3a1d1d; stroke:var(--err); }
-  .node text.label { fill:var(--text); font-size:13px; font-weight:600; text-anchor:middle; }
-  .node text.tech { fill:var(--muted); font-size:11px; text-anchor:middle; }
-  .node text.meta { fill:var(--text); font-size:11px; text-anchor:middle; }
-  .edge { stroke:#3a4150; stroke-width:2; fill:none; marker-end:url(#arrow); }
-  .edge.active { stroke:var(--accent); stroke-dasharray:6 4; animation: flow .6s linear infinite; }
-  .edge.done { stroke:var(--ok); }
-  @keyframes pulse { 0%,100% { filter:drop-shadow(0 0 0 rgba(77,163,255,0)); } 50% { filter:drop-shadow(0 0 8px rgba(77,163,255,.7)); } }
-  @keyframes flow { to { stroke-dashoffset: -20; } }
-  .lower { display:grid; grid-template-columns: 1fr 1.4fr; gap:16px; margin-top:16px; }
-  #log { height:260px; overflow:auto; font:12px/1.5 Consolas, monospace; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; }
-  #log .ts { color:var(--muted); }
-  #log .err { color:var(--err); }
-  #log .ok { color:var(--ok); }
-  .card { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; }
-  .card h3 { font-size:12px; margin:0 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
-  .kv { display:grid; grid-template-columns: 1fr 1fr; gap:6px 14px; }
-  .kv div b { display:block; font-size:11px; color:var(--muted); font-weight:500; }
-  .na { color:var(--warn); }
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  th, td { text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); }
-  th { color:var(--muted); font-weight:500; }
-  ul { margin:4px 0 0 18px; padding:0; }
-  pre { white-space:pre-wrap; word-break:break-word; font:11px/1.4 Consolas, monospace; background:var(--bg); padding:8px; border-radius:6px; border:1px solid var(--border); max-height:300px; overflow:auto; }
-  .badge { font-size:11px; padding:1px 7px; border-radius:99px; border:1px solid var(--border); color:var(--muted); }
-  .badge.llm { color:var(--accent); border-color:var(--accent); }
-  .badge.fallback { color:var(--warn); border-color:var(--warn); }
-  @media (max-width: 1000px) { main, .lower { grid-template-columns: 1fr; } }
+  /* Portal 2000 palette and structure (design/portal-era-addendum.md). No third-party artwork, no emojis. */
+  :root {
+    --page:#2b66b1; --page-dark:#15386b; --nav:#0b1f3a; --panel:#eaf3ff; --box:#ffffff;
+    --ink:#0b1f3a; --muted:#3a4a63; --line:#8fb1d9; --link:#0a4fb3;
+    --blue:#123f7f; --orange:#ffa11a; --orange-hi:#ffb84d; --yellow:#ffd84a;
+    --ok:#1c6b1c; --ok-bg:#dff3df; --bad:#a31414; --bad-bg:#fde6e6; --note:#fff6bf;
+    --shadow:3px 3px 0 rgba(11,31,58,.35);
+  }
+  * { box-sizing:border-box; }
+  html { font-size:15px; }
+  body {
+    margin:0; color:var(--ink); line-height:1.5;
+    font-family:Verdana, Tahoma, Geneva, sans-serif;
+    background:var(--page) repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 10px, transparent 10px 20px);
+  }
+  a { color:var(--link); text-decoration:underline; }
+  h1, h2, h3, p { margin:0; }
+  p { margin:.4rem 0; }
+  :focus-visible { outline:3px solid var(--link); outline-offset:2px; box-shadow:0 0 0 5px #fff; }
+  .sr-only { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+  .skip { position:absolute; left:.5rem; top:-3rem; background:var(--nav); color:var(--yellow); padding:.5rem .75rem; z-index:30; }
+  .skip:focus { top:.5rem; }
+  .help { color:var(--muted); font-size:.9rem; font-weight:400; }
+  .num { text-align:right !important; font-variant-numeric:tabular-nums; }
+
+  /* ---- top strip ---- */
+  header.top { background:var(--nav); border-bottom:4px solid var(--orange); }
+  .top-in { max-width:1500px; margin:0 auto; padding:.55rem 1rem; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem 1.25rem; }
+  .brand { font:900 1.5rem "Arial Black", Impact, "Trebuchet MS", sans-serif; text-decoration:none; letter-spacing:.01em; text-shadow:2px 2px 0 var(--blue); }
+  .brand .w1 { color:#fff; } .brand .w2 { color:var(--orange); } .brand .w3 { color:var(--yellow); }
+  .top-status { color:#fff; font:700 .85rem "Trebuchet MS", Verdana, sans-serif; text-transform:uppercase; letter-spacing:.04em; flex:1; }
+  .top-status b { color:var(--yellow); }
+  .top-actions { display:flex; gap:.5rem; }
+
+  /* ---- layout ---- */
+  .wrap { max-width:1500px; margin:0 auto; padding:12px; }
+  .shell { display:grid; gap:12px; grid-template-columns:310px minmax(0,1fr) 270px; align-items:start; }
+  .stack { display:grid; gap:12px; min-width:0; }
+  @media (max-width:1100px) { .shell { grid-template-columns:310px minmax(0,1fr); } .shell > .right { grid-column:1 / -1; } }
+  @media (max-width:760px) { .shell { grid-template-columns:1fr; } }
+  .two { display:grid; gap:.75rem; grid-template-columns:1fr 1fr; }
+  .cols2 { display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+ align-items:start; }
+
+  /* ---- boxes with a coloured header strip ---- */
+  .box { background:var(--box); border:2px solid var(--ink); border-radius:6px; box-shadow:var(--shadow); overflow:hidden; min-width:0; }
+  .box > h2 { padding:.4rem .85rem; background:var(--blue); color:#fff; border-bottom:2px solid var(--ink); font:700 .85rem "Trebuchet MS", Verdana, sans-serif; text-transform:uppercase; letter-spacing:.04em; }
+  .box.o > h2 { background:var(--orange); color:var(--ink); }
+  .box.y > h2 { background:var(--yellow); color:var(--ink); }
+  .box .bd { padding:.85rem 1rem; }
+  .box.rail .bd { background:var(--panel); }
+  .box h3 { font:700 .95rem "Trebuchet MS", Verdana, sans-serif; margin:.9rem 0 .3rem; color:var(--blue); }
+  .box h3:first-child { margin-top:0; }
+  .box.busy .bd { opacity:.55; }
+  .section-bar { margin:1rem 0 .75rem; padding:.45rem .85rem; background:var(--nav); color:var(--yellow); border:2px solid var(--ink); border-radius:6px; font:900 1.05rem "Arial Black", Impact, "Trebuchet MS", sans-serif; letter-spacing:.02em; text-transform:uppercase; }
+  .section-bar small { color:#fff; font:400 .8rem Verdana, sans-serif; text-transform:none; letter-spacing:0; margin-left:.75rem; }
+
+  /* ---- form ---- */
+  label { display:block; font-weight:700; margin:.7rem 0 .2rem; font-size:.95rem; }
+  label:first-child { margin-top:0; }
+  label .help { font-weight:400; }
+  input, select, textarea { width:100%; font:inherit; padding:.5rem .6rem; min-height:2.4rem; border:2px solid var(--muted); border-radius:3px; background:#fff; color:var(--ink); }
+  textarea { min-height:4.5rem; resize:vertical; }
+  input:focus, select:focus, textarea:focus { outline:3px solid var(--link); outline-offset:1px; }
+  .note { margin:.3rem 0 0; font-size:.88rem; padding:.3rem .55rem; border:1px solid var(--line); border-radius:3px; background:var(--note); }
+  .note.warn { background:#ffe3a3; }
+  .note.bad { background:var(--bad-bg); color:var(--bad); border-color:var(--bad); }
+  details.more { margin-top:.8rem; border-top:1px dashed var(--line); padding-top:.5rem; }
+  details.more > summary { cursor:pointer; font-weight:700; color:var(--link); text-decoration:underline; }
+  .radio { display:flex; gap:.5rem; align-items:flex-start; font-weight:400; margin:.45rem 0; }
+  .radio input { width:auto; min-height:0; margin-top:.25rem; }
+
+  button, .btn { font:700 .85rem "Trebuchet MS", Verdana, sans-serif; text-transform:uppercase; letter-spacing:.04em; min-height:2.5rem; padding:.5rem 1rem; border:2px solid var(--ink); border-radius:6px; background:var(--orange); color:var(--ink); cursor:pointer; box-shadow:2px 2px 0 rgba(11,31,58,.45); text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:.4rem; }
+  button:hover, .btn:hover { background:var(--orange-hi); }
+  button:active, .btn:active { transform:translate(1px,1px); box-shadow:1px 1px 0 rgba(11,31,58,.45); }
+  button.secondary, .btn.secondary { background:#fff; }
+  button.secondary:hover { background:var(--note); }
+  button.small { min-height:2rem; padding:.2rem .7rem; font-size:.78rem; }
+  button.link { background:none; border:0; box-shadow:none; text-transform:none; letter-spacing:0; color:var(--link); text-decoration:underline; min-height:0; padding:0; font:700 1rem Verdana, sans-serif; }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  .actions { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.9rem; align-items:center; }
+  .actions.full button { flex:1; }
+
+  /* ---- past deal search ---- */
+  .pick { margin-top:.4rem; border:2px solid var(--ink); border-radius:3px; background:#fff; max-height:15rem; overflow:auto; }
+  .pick:empty { display:none; }
+  .pick button { width:100%; justify-content:space-between; text-align:left; text-transform:none; letter-spacing:0; font:400 .9rem Verdana, sans-serif; box-shadow:none; background:#fff; border:0; border-bottom:1px dashed var(--line); border-radius:0; min-height:2.6rem; gap:.6rem; }
+  .pick button:hover { background:var(--note); }
+  .pick button:active { transform:none; }
+  .pick .sub { color:var(--muted); font-size:.8rem; display:block; }
+
+  /* ---- answer ---- */
+  .headline { font-size:1.2rem; line-height:1.4; font-weight:700; }
+  .headline strong { color:var(--blue); }
+  .kpis { display:grid; gap:.6rem; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); margin:.7rem 0 .2rem; }
+  .kpi { border:2px solid var(--ink); border-radius:4px; padding:.5rem .7rem; background:#fff; box-shadow:2px 2px 0 rgba(11,31,58,.25); }
+  .kpi .v { font:900 1.35rem "Arial Black", Impact, sans-serif; color:var(--blue); }
+  .kpi .l { color:var(--muted); font-size:.82rem; }
+  .badge { display:inline-block; padding:.1rem .5rem; border:2px solid var(--ink); border-radius:3px; font-weight:700; font-size:.76rem; text-transform:uppercase; letter-spacing:.03em; background:#fff; color:var(--ink); }
+  .badge.ok { background:var(--ok); color:#fff; }
+  .badge.warn { background:var(--orange); }
+  .badge.bad { background:var(--bad); color:#fff; }
+  .chips { display:flex; flex-wrap:wrap; gap:.3rem; margin:.35rem 0 0; }
+  .chip { background:#fff; border:1px solid var(--ink); border-radius:2px; padding:0 .4rem; font-size:.78rem; }
+  ul.tidy { margin:.4rem 0 0 1.1rem; padding:0; list-style:square; }
+  ul.tidy li { margin:.3rem 0; } ul.tidy li::marker { color:var(--link); }
+  ul.todo { list-style:none; padding:0; margin:.2rem 0 0; }
+  ul.todo li { display:flex; gap:.6rem; align-items:flex-start; margin:.45rem 0; }
+  ul.todo li::before { content:""; flex:none; width:.75rem; height:.75rem; margin-top:.35rem; background:var(--orange); border:2px solid var(--ink); }
+  .risk { border:2px solid var(--ink); border-left:8px solid var(--orange); background:var(--note); padding:.5rem .7rem; border-radius:3px; margin:.5rem 0; }
+  .gap { border:2px dashed var(--line); border-left:8px solid var(--muted); background:#fff; padding:.5rem .7rem; border-radius:3px; margin:.5rem 0; }
+  .gap .fix { color:var(--muted); font-size:.88rem; }
+  .banner { border:2px solid var(--ink); border-radius:6px; padding:.8rem 1rem; background:var(--note); box-shadow:var(--shadow); }
+  .banner.bad { background:var(--bad-bg); border-color:var(--bad); color:#5e0b0b; }
+
+  /* progress strip */
+  ol.flow { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:6px; counter-reset:s; }
+  ol.flow li { border:2px solid var(--ink); border-radius:4px; padding:.4rem .5rem; font-size:.8rem; background:#fff; color:var(--muted); counter-increment:s; }
+  ol.flow li::before { content:counter(s); display:inline-block; width:1.3rem; height:1.3rem; line-height:1.1rem; text-align:center; border:2px solid var(--ink); border-radius:3px; margin-right:.35rem; font-weight:700; background:var(--panel); color:var(--ink); }
+  ol.flow li.running { background:var(--yellow); color:var(--ink); font-weight:700; }
+  ol.flow li.done { background:var(--ok-bg); color:var(--ink); }
+  ol.flow li.error { background:var(--bad-bg); color:var(--bad); }
+  ol.flow li small { display:block; margin-left:1.65rem; font-weight:400; color:var(--muted); }
+  .bar-run { height:.7rem; border:2px solid var(--ink); border-radius:3px; background:#fff; margin-top:.6rem; overflow:hidden; }
+  .bar-run i { display:block; height:100%; width:30%; background:repeating-linear-gradient(90deg, var(--blue) 0 10px, #3c6bb0 10px 12px); animation:slide 1.1s linear infinite; }
+  @keyframes slide { from { margin-left:-30%; } to { margin-left:100%; } }
+
+  /* ---- right rail ---- */
+  ol.rank { list-style:none; margin:0; padding:0; }
+  ol.rank li { padding:.55rem 0; border-bottom:1px dashed var(--line); }
+  ol.rank li:last-child { border-bottom:0; }
+  ol.rank .nm { font-weight:700; color:var(--blue); word-break:break-word; }
+  ol.rank .no { display:inline-block; min-width:1.3rem; text-align:center; background:var(--ink); color:var(--yellow); border-radius:2px; font-size:.78rem; margin-right:.35rem; }
+  dl.facts { margin:0; display:grid; grid-template-columns:1fr auto; gap:.3rem .6rem; }
+  dl.facts dt { color:var(--muted); font-size:.88rem; } dl.facts dd { margin:0; font-weight:700; text-align:right; }
+
+  /* ---- big picture charts and tables ---- */
+  .cov { display:grid; gap:.5rem; }
+  .row-bar { display:grid; grid-template-columns:minmax(7rem, 13rem) 1fr auto; gap:.6rem; align-items:center; }
+  .row-bar .name { font-weight:700; word-break:break-word; font-size:.9rem; }
+  .row-bar .sub { color:var(--muted); font-size:.78rem; font-weight:400; display:block; }
+  .track { background:#fff; border:2px solid var(--ink); border-radius:3px; height:1.1rem; overflow:hidden; }
+  .track i { display:block; height:100%; background:repeating-linear-gradient(90deg, var(--blue) 0 10px, #3c6bb0 10px 12px); }
+  .track i.alt { background:repeating-linear-gradient(90deg, var(--orange) 0 10px, #ffc266 10px 12px); }
+  .row-bar .val { font-variant-numeric:tabular-nums; font-weight:700; min-width:4.2rem; text-align:right; font-size:.9rem; }
+  @media (max-width:620px) { .row-bar { grid-template-columns:1fr auto; } .row-bar .track { grid-column:1 / -1; } }
+  .so-what { background:var(--note); border:1px solid var(--line); border-radius:3px; padding:.45rem .7rem; margin:0 0 .7rem; }
+  table.t { width:100%; border-collapse:collapse; font-size:.88rem; }
+  table.t th, table.t td { text-align:left; padding:.35rem .45rem; border-bottom:1px dashed var(--line); vertical-align:top; }
+  table.t th { background:var(--panel); border-bottom:2px solid var(--ink); font-family:"Trebuchet MS", Verdana, sans-serif; }
+  .table-wrap { overflow-x:auto; }
+  .colchart { display:flex; align-items:flex-end; gap:.3rem; height:8.5rem; padding-top:.5rem; }
+  .colchart .col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; min-width:0; }
+  .colchart .col i { display:block; width:100%; background:var(--blue); border:2px solid var(--ink); border-bottom:0; min-height:2px; }
+  .colchart .col span { font-size:.72rem; color:var(--muted); margin-top:.2rem; }
+  .colchart .col b { font-size:.72rem; }
+  svg.hist { width:100%; height:auto; display:block; }
+  svg.hist text { font-size:11px; fill:#3a4a63; }
+  pre { white-space:pre-wrap; word-break:break-word; background:#fff; border:2px solid var(--ink); border-radius:3px; padding:.6rem; max-height:20rem; overflow:auto; font:.78rem/1.45 Consolas, monospace; }
+  details.tech { margin-top:.2rem; }
+  details.tech > summary { cursor:pointer; font-weight:700; color:var(--link); text-decoration:underline; padding:.4rem 0; }
+
+  footer { margin-top:1rem; background:var(--page-dark); color:#fff; border-top:3px solid var(--ink); padding:1rem; }
+  footer .in { max-width:1500px; margin:0 auto; font-size:.85rem; }
+  footer details > summary { cursor:pointer; font-weight:700; color:var(--yellow); }
+  footer dt { font-weight:700; margin-top:.6rem; color:var(--yellow); } footer dd { margin:0; }
+  footer ul { margin:.3rem 0 0 1.1rem; padding:0; list-style:square; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } button:active, .btn:active { transform:none; } }
+  @media print {
+    body { background:#fff; }
+    header.top, footer, .no-print, .left, #picture, .actions { display:none !important; }
+    .shell { display:block; } .box { box-shadow:none; break-inside:avoid; margin-bottom:8px; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>RAGS2Riches</h1>
-  <span>LangChain + LangGraph workflow · UAT data: mock leasing ledger</span>
+<a class="skip" href="#answer">Skip to the answer</a>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#" aria-label="RAGS2Riches"><span class="w1">RAGS</span><span class="w2">2</span><span class="w3">Riches</span></a>
+    <div class="top-status" id="top-status" role="status">Starting...</div>
+    <div class="top-actions no-print">
+      <button type="button" class="secondary small" data-act="toggle-load">Load data</button>
+      <button type="button" class="secondary small" data-act="print">Print</button>
+    </div>
+  </div>
 </header>
+<noscript><p style="padding:1rem;background:#fff">This tool needs JavaScript. Please turn it on and reload.</p></noscript>
 
-<main>
-  <section class="panel">
-    <h2>New deal</h2>
-    <label for="mock_deal">Load a historical deal (UAT backtest)</label>
-    <select id="mock_deal"><option value="">— choose —</option></select>
-    <div class="hint" id="mock_hint">Backtests exclude the loaded deal from its own comparables.</div>
+<div class="wrap">
+  <div id="load-slot"></div>
+  <div class="shell">
+    <aside class="stack left no-print" aria-label="Deal details">
+      <form id="deal-form" class="box rail" novalidate>
+        <h2>Check a deal</h2>
+        <div class="bd">
+          <label for="industry">Type of business</label>
+          <select id="industry" data-field="industry"><option value="">Not sure</option></select>
 
-    <form id="deal_form" autocomplete="off">
-      <label for="deal_name">Deal name (optional)</label>
-      <input id="deal_name" placeholder="e.g. Client 012 - Deal 1" />
-      <label for="account_name">Account name</label>
-      <input id="account_name" />
-      <label for="industry">Industry</label>
-      <select id="industry"><option value="">— any —</option></select>
-      <div class="row">
-        <div>
-          <label for="size_sqft">Size (sq ft)</label>
-          <input id="size_sqft" type="number" min="0" step="any" />
+          <label for="size_sqft">Space needed (sq ft)</label>
+          <input id="size_sqft" data-field="size_sqft" type="number" inputmode="decimal" min="0" step="any" />
+          <div id="size_note" aria-live="polite"></div>
+
+          <div class="two">
+            <div><label for="lease_len">Lease length</label>
+              <input id="lease_len" data-field="lease_len" type="number" inputmode="decimal" min="0" step="any" /></div>
+            <div><label for="lease_unit">In</label>
+              <select id="lease_unit" data-field="lease_unit"><option value="years">Years</option><option value="months">Months</option></select></div>
+          </div>
+          <div id="lease_note" aria-live="polite"></div>
+
+          <details class="more" id="more">
+            <summary>More details (optional)</summary>
+            <label for="rent_psf">Rent per sq ft per month</label>
+            <input id="rent_psf" data-field="rent_psf" type="number" inputmode="decimal" min="0" step="any" />
+            <div id="rent_note" aria-live="polite"></div>
+            <label for="property_name">Building</label>
+            <input id="property_name" data-field="property_name" maxlength="255" autocomplete="off" />
+            <label for="account_name">Company name</label>
+            <input id="account_name" data-field="account_name" maxlength="255" autocomplete="off" />
+            <label for="agent_name">Lead agent</label>
+            <input id="agent_name" data-field="agent_name" maxlength="120" autocomplete="off" />
+            <label for="notes">Notes</label>
+            <textarea id="notes" data-field="notes" maxlength="4000"></textarea>
+            <p class="help">Phone numbers and emails are removed before anything leaves this computer.</p>
+          </details>
+
+          <details class="more" id="writer">
+            <summary>Writing assistant (optional)</summary>
+            <div id="writer-list"></div>
+          </details>
+
+          <div class="actions full">
+            <button type="submit" id="go-btn">Check this deal</button>
+            <button type="button" class="secondary" data-act="clear">Clear</button>
+          </div>
+          <p class="help" id="auto-hint">The answer updates as you type.</p>
+          <p id="form-msg" class="note bad" role="alert" hidden></p>
         </div>
-        <div>
-          <label for="lease_term_months">Lease term (months)</label>
-          <input id="lease_term_months" type="number" min="0" step="any" />
+      </form>
+
+      <section class="box rail o" aria-labelledby="past-h">
+        <h2 id="past-h">Learn from a past deal</h2>
+        <div class="bd">
+          <label for="past-search">Find a deal</label>
+          <input id="past-search" type="search" autocomplete="off" placeholder="Deal, building or business type" />
+          <p class="help" id="past-count" role="status"></p>
+          <div class="pick" id="past-list"></div>
+          <div id="past-active"></div>
         </div>
-      </div>
-      <div class="row">
-        <div>
-          <label for="gross_signing_rent_psf">Gross rent (psf/mo)</label>
-          <input id="gross_signing_rent_psf" type="number" min="0" step="any" />
-        </div>
-        <div>
-          <label for="agent_name">Lead agent</label>
-          <input id="agent_name" />
-        </div>
-      </div>
-      <label for="property_name">Property name</label>
-      <input id="property_name" />
-      <label for="notes">Notes (emails and phone numbers are redacted before any LLM call)</label>
-      <textarea id="notes"></textarea>
+      </section>
+    </aside>
 
-      <h2 style="margin-top:14px">Synthesis engine</h2>
-      <label for="provider">LLM provider</label>
-      <select id="provider"></select>
-      <div class="hint" id="provider_status"></div>
-      <label for="model">Model</label>
-      <input id="model" placeholder="leave blank for provider default" />
+    <section class="stack centre" id="answer" tabindex="-1" aria-label="Answer"></section>
 
-      <button type="submit" id="run">Run evaluation</button>
-      <button type="button" class="secondary" id="ingest">Re-ingest mock data</button>
-    </form>
-    <div class="hint" id="ingest_status"></div>
-  </section>
+    <aside class="stack right" id="rail-right" aria-label="Similar deals and facts"></aside>
+  </div>
 
-  <section>
-    <div class="panel">
-      <h2>Live workflow <span id="run_status" class="badge"></span></h2>
-      <div id="diagram-wrap">
-        <svg id="diagram" viewBox="0 0 1092 160" role="img" aria-label="Deal inference workflow diagram"></svg>
-      </div>
-    </div>
+  <div id="picture"></div>
+</div>
 
-    <div class="lower">
-      <div class="panel">
-        <h2>Event log</h2>
-        <div id="log"></div>
-      </div>
-      <div class="panel">
-        <h2>Scorecard</h2>
-        <div id="scorecard"><div class="hint">Run an evaluation to see the scorecard.</div></div>
-      </div>
-    </div>
-  </section>
-</main>
+<footer>
+  <div class="in">
+    <details>
+      <summary>Help: what the words mean and how far to trust the numbers</summary>
+      <dl id="glossary"></dl>
+      <ul id="trust-notes"></ul>
+      <p>Writing assistants:</p><ul id="provider-status"></ul>
+    </details>
+    <p>Everything runs on this computer. Estimates come from your own past deals and are a guide, not a promise.</p>
+  </div>
+</footer>
+<div class="sr-only" id="status" role="status" aria-live="polite"></div>
 
 <script>
-const NODES = [
-  { id: "input", label: "Deal input", tech: "form" },
-  { id: "validate_input", label: "Validate", tech: "Pydantic" },
-  { id: "sql_baseline", label: "SQL baseline", tech: "SQLAlchemy" },
-  { id: "analogue_retrieval", label: "Analogues", tech: "local TF-IDF" },
-  { id: "llm_synthesis", label: "LLM synthesis", tech: "LangChain model" },
-  { id: "assemble_scorecard", label: "Assemble", tech: "Pydantic" },
-  { id: "output", label: "Scorecard", tech: "JSON" },
-];
-const W = 132, H = 62, GAP = 24, X0 = 12, Y = 24;
-const NS = "http://www.w3.org/2000/svg";
-const svg = document.getElementById("diagram");
-const logEl = document.getElementById("log");
-const scorecardEl = document.getElementById("scorecard");
-const runStatus = document.getElementById("run_status");
-let catalog = [];
+"use strict";
 
-const el = (tag, attrs = {}, text) => {
-  const node = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
-  if (text !== undefined) node.textContent = text;
-  return node;
+/* ---------- safe HTML templating ---------- */
+class Safe { constructor(s) { this.s = s; } }
+const ESC = { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" };
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ESC[c]);
+const raw = (s) => new Safe(String(s));
+function part(v) {
+  if (v instanceof Safe) return v.s;
+  if (v === null || v === undefined || v === false) return "";
+  if (Array.isArray(v)) return v.map(part).join("");
+  return esc(v);
+}
+function h(strings, ...vals) {
+  let out = strings[0];
+  vals.forEach((v, i) => { out += part(v) + strings[i + 1]; });
+  return new Safe(out);
+}
+const $ = (sel, root = document) => root.querySelector(sel);
+
+/* ---------- formatting ---------- */
+const isNum = (v) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v));
+const num = (v, d = 0) => (isNum(v) ? Number(v).toLocaleString("en-SG", { maximumFractionDigits: d }) : "n/a");
+const money = (v) => (isNum(v) ? "SGD " + num(v) : "not known");
+function compact(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "n/a";
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, "") + "M";
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, "") + "k";
+  return String(Math.round(n));
+}
+const moneyShort = (v) => (isNum(v) ? "SGD " + compact(v) : "not known");
+const pct = (v) => (isNum(v) ? num(v, 1) + "%" : "n/a");
+const plural = (n, one, many) => `${num(n)} ${Number(n) === 1 ? one : (many || one + "s")}`;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function niceDate(iso) {
+  if (!iso) return "date not known";
+  const d = new Date(iso + "T00:00:00");
+  return Number.isNaN(d.getTime()) ? String(iso) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+const TIER_NAMES = { S:"Small (up to 5,000 sq ft)", M:"Medium (5,000 to 10,000)", L:"Large (10,000 to 20,000)", XL:"Extra large (over 20,000)" };
+function tierName(t) { const k = String(t || "").split(" ")[0]; return TIER_NAMES[k] || t || "Not recorded"; }
+function sizeBand(sqft) {
+  const n = Number(sqft);
+  if (!(n > 0)) return null;
+  return n <= 5000 ? "S" : n <= 10000 ? "M" : n <= 20000 ? "L" : "XL";
+}
+
+/* ---------- state ---------- */
+const EMPTY_DEAL = { account_name:"", industry:"", property_name:"", size_sqft:"", lease_len:"", lease_unit:"years", rent_psf:"", agent_name:"", notes:"" };
+const AUTO_DELAY_MS = 700;
+function savedDeal() { try { return JSON.parse(sessionStorage.getItem("deal") || "{}"); } catch (_e) { return {}; } }
+const S = {
+  meta: null, deals: null, portfolio: null, portfolioError: null,
+  deal: Object.assign({}, EMPTY_DEAL, savedDeal()),
+  provider: "template", model: "",
+  past: null, run: null, scorecard: null, controller: null, slowTimer: null, debounce: null,
+  loadMsg: "", feedbackSent: false,
 };
-const x = (i) => X0 + i * (W + GAP);
+const saveDeal = () => { try { sessionStorage.setItem("deal", JSON.stringify(S.deal)); } catch (_e) { /* storage unavailable */ } };
+const say = (text) => { $("#status").textContent = text; };
 
-function buildDiagram() {
-  svg.innerHTML = "";
-  const defs = el("defs");
-  const marker = el("marker", { id: "arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse" });
-  marker.appendChild(el("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#6e7681" }));
-  defs.appendChild(marker);
-  svg.appendChild(defs);
-
-  for (let i = 0; i < NODES.length - 1; i++) {
-    const edge = el("path", { id: `edge-${i}`, class: "edge",
-      d: `M ${x(i) + W} ${Y + H / 2} L ${x(i + 1) - 2} ${Y + H / 2}` });
-    svg.appendChild(edge);
-  }
-  NODES.forEach((n, i) => {
-    const g = el("g", { class: "node", id: `node-${n.id}` });
-    g.appendChild(el("rect", { x: x(i), y: Y, width: W, height: H }));
-    g.appendChild(el("text", { class: "label", x: x(i) + W / 2, y: Y + 26 }, n.label));
-    g.appendChild(el("text", { class: "tech", x: x(i) + W / 2, y: Y + 44 }, n.tech));
-    g.appendChild(el("text", { class: "meta", id: `meta-${n.id}`, x: x(i) + W / 2, y: Y + H + 18 }, "idle"));
-    svg.appendChild(g);
-  });
+/* ---------- API ---------- */
+class ApiError extends Error { constructor(msg, status, detail) { super(msg); this.status = status; this.detail = detail; } }
+async function api(path, opts = {}) {
+  let res;
+  try { res = await fetch(path, opts); }
+  catch (_e) { throw new ApiError("We can't reach the app. Please check that it is still running, then try again.", 0); }
+  let body = null;
+  try { body = await res.json(); } catch (_e) { /* not JSON */ }
+  if (!res.ok) throw new ApiError(friendlyError(res.status, body), res.status, body && body.detail);
+  return body;
 }
-
-function setNode(id, state, meta) {
-  const g = document.getElementById(`node-${id}`);
-  if (!g) return;
-  g.setAttribute("class", `node ${state}`);
-  const m = document.getElementById(`meta-${id}`);
-  if (m) {
-    m.textContent = meta ?? "";
-    m.setAttribute("class", "meta");
-  }
-  g.querySelectorAll("title").forEach((t) => t.remove());
-  g.appendChild(el("title", {}, meta ?? ""));
-}
-
-function setEdge(index, state) {
-  const edge = document.getElementById(`edge-${index}`);
-  if (edge) edge.setAttribute("class", `edge ${state}`);
-}
-
-function edgeIndexInto(nodeId) {
-  return NODES.findIndex((n) => n.id === nodeId) - 1;
-}
-
-function resetDiagram() {
-  buildDiagram();
-  setNode("input", "done", "form submitted");
-  runStatus.textContent = "running";
-  scorecardEl.innerHTML = '<div class="hint">Running…</div>';
-}
-
-function log(message, cls = "") {
-  const time = new Date().toLocaleTimeString();
-  const line = document.createElement("div");
-  line.innerHTML = `<span class="ts">${time}</span> <span class="${cls}">${esc(message)}</span>`;
-  logEl.appendChild(line);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
-const esc = (v) => String(v ?? "—").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const fmt = (n) => (n === null || n === undefined ? '<span class="na">unavailable</span>' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
-const fmtText = (n, suffix = "") => (n === null || n === undefined ? '<span class="na">unavailable</span>' : `${esc(n)}${suffix}`);
-
-function handleEvent(ev) {
-  switch (ev.type) {
-    case "run_start":
-      log(`run started · provider=${ev.provider}${ev.model ? " · model=" + ev.model : ""}`);
-      break;
-    case "node_start": {
-      const idx = edgeIndexInto(ev.node);
-      if (idx >= 0) setEdge(idx, "active");
-      setNode(ev.node, "running", "running…");
-      log(`▶ ${ev.node}`);
-      break;
-    }
-    case "node_end": {
-      const idx = edgeIndexInto(ev.node);
-      if (idx >= 0) setEdge(idx, "done");
-      setNode(ev.node, "done", `${ev.duration_ms} ms`);
-      log(`✔ ${ev.node} (${ev.duration_ms} ms): ${ev.summary}`, "ok");
-      break;
-    }
-    case "node_error":
-      setNode(ev.node, "error", ev.error);
-      log(`✖ ${ev.node}: ${ev.error}`, "err");
-      break;
-    case "run_complete":
-      setEdge(NODES.length - 2, "done");
-      setNode("output", "done", "ready");
-      runStatus.textContent = "complete";
-      renderScorecard(ev.scorecard);
-      log("run complete", "ok");
-      break;
-    case "run_error":
-      setNode("output", "error", ev.error);
-      runStatus.textContent = "failed";
-      scorecardEl.innerHTML = `<div class="card na">${esc(ev.error)}</div>`;
-      log(`✖ run failed: ${ev.error}`, "err");
-      break;
-  }
-}
-
-function renderScorecard(s) {
-  const b = s.evidence.baseline;
-  const narrativeBadge = s.narrative_source === "llm"
-    ? '<span class="badge llm">LLM narrative</span>'
-    : s.narrative_source === "template_fallback"
-      ? '<span class="badge fallback">template fallback</span>'
-      : '<span class="badge">template narrative</span>';
-  const analogueRows = s.evidence.analogues.map((a) => `
-    <tr><td>${esc(a.deal_name)}</td><td>${esc(a.industry)}</td><td>${fmt(a.size_sqft)}</td>
-        <td>${fmtText(a.lease_term_months, " mo")}</td><td>${fmt(a.gross_fee_sgd)}</td><td>${a.similarity}</td></tr>`).join("")
-    || '<tr><td colspan="6" class="na">no analogues found</td></tr>';
-
-  scorecardEl.innerHTML = `
-    <div class="card">
-      <h3>Deal ${esc(s.deal_id)} ${narrativeBadge}</h3>
-      <div class="kv">
-        <div><b>Win probability</b>${fmtText(s.estimates.win_probability_pct, "%")}</div>
-        <div><b>Median comparable fee (SGD)</b>${fmt(s.estimates.estimated_fee_sgd)}</div>
-        <div><b>Timeframe (days)</b>${fmtText(s.estimates.estimated_timeframe_days)}</div>
-        <div><b>Confidence</b>${esc(s.estimates.confidence_level)}</div>
-        <div><b>Pursue recommendation</b>${fmtText(s.qualification.pursue_recommendation)}</div>
-        <div><b>Fit score</b>${fmtText(s.qualification.fit_score)}</div>
-      </div>
-    </div>
-    <div class="card">
-      <h3>Effort allocation</h3>
-      <div>${esc(s.effort_allocation.tier)} · up to ${esc(s.effort_allocation.max_recommended_hours)} hrs</div>
-      <ul>${s.effort_allocation.recommended_resources.map((r) => `<li>${esc(r)}</li>`).join("") || '<li class="na">none</li>'}</ul>
-    </div>
-    <div class="card">
-      <h3>Closing playbook</h3>
-      <div>${esc(s.closing_playbook.winning_strategy)}</div>
-      <ul>${s.closing_playbook.key_risks_and_mitigations.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
-      <div class="hint">Referenced: ${s.closing_playbook.referenced_historical_deals.map(esc).join(", ") || "none"}</div>
-    </div>
-    <div class="card">
-      <h3>Evidence · ${esc(b.match_level)} (${b.n_comparables} comparables)</h3>
-      <div class="kv">
-        <div><b>Median fee (SGD)</b>${fmt(b.median_fee_sgd)}</div>
-        <div><b>Mean fee (SGD)</b>${fmt(b.mean_fee_sgd)}</div>
-        <div><b>Median size (sq ft)</b>${fmt(b.median_size_sqft)}</div>
-        <div><b>Median term (mo)</b>${fmtText(b.median_lease_term_months)}</div>
-        <div><b>Outcomes known</b>${b.outcome_coverage}</div>
-        <div><b>Win rate</b>${fmtText(b.win_rate_pct, "%")}</div>
-      </div>
-      <table style="margin-top:8px"><thead><tr><th>Analogue</th><th>Industry</th><th>Sq ft</th><th>Term</th><th>Fee SGD</th><th>Sim.</th></tr></thead>
-      <tbody>${analogueRows}</tbody></table>
-    </div>
-    <div class="card">
-      <h3>Data gaps</h3>
-      <ul>${s.data_gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>
-      ${s.warnings.length ? `<h3 style="margin-top:8px">Warnings</h3><ul>${s.warnings.map((w) => `<li class="na">${esc(w)}</li>`).join("")}</ul>` : ""}
-    </div>
-    <details><summary class="hint">Raw JSON</summary><pre>${esc(JSON.stringify(s, null, 2))}</pre></details>`;
-}
-
-function val(id) {
-  const v = document.getElementById(id).value.trim();
-  return v === "" ? null : v;
-}
-const num = (id) => (val(id) === null ? null : Number(val(id)));
-
-function collectPayload() {
-  return {
-    deal: {
-      deal_name: val("deal_name"), account_name: val("account_name"), industry: val("industry"),
-      size_sqft: num("size_sqft"), lease_term_months: num("lease_term_months"),
-      gross_signing_rent_psf: num("gross_signing_rent_psf"), property_name: val("property_name"),
-      agent_name: val("agent_name"), notes: val("notes"),
-    },
-    llm: { provider: val("provider") || "template", model: val("model") },
-  };
-}
-
-async function runEvaluation(event) {
-  event.preventDefault();
-  const button = document.getElementById("run");
-  button.disabled = true;
-  logEl.innerHTML = "";
-  resetDiagram();
-  try {
-    const res = await fetch("/api/evaluate/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(collectPayload()),
+const FIELD_LABEL = { account_name:"Company name", industry:"Type of business", size_sqft:"Space needed", lease_term_months:"Lease length", gross_signing_rent_psf:"Rent per sq ft", property_name:"Building", agent_name:"Lead agent", notes:"Notes", model:"Model name" };
+function friendlyError(status, body) {
+  const detail = body && body.detail;
+  if (status === 422 && Array.isArray(detail)) {
+    const msgs = detail.map((d) => {
+      const field = d.loc && d.loc[d.loc.length - 1];
+      return `${FIELD_LABEL[field] || "One of the details"} doesn't look right. Please check it.`;
     });
+    return [...new Set(msgs)].join(" ");
+  }
+  if (status === 429) return "A few checks are already running. Please wait a moment and try again.";
+  if (status === 409) return "Records are already being loaded. Please wait a moment.";
+  if (status === 413) return "That file is too large (the limit is 50 MB).";
+  if (status === 404) return "We couldn't find that file. Check the file or choose one from your computer.";
+  if (status === 403) return "That file location isn't allowed. Please choose the file from your computer instead.";
+  if (typeof detail === "string" && status < 500) return detail;
+  return "Something went wrong on our side. Your details are still here, so you can try again.";
+}
+async function loadMeta() { S.meta = await api("/api/meta"); return S.meta; }
+async function loadDeals() { if (!S.deals) S.deals = await api("/api/deals?limit=1000"); return S.deals; }
+async function loadPortfolio() {
+  if (S.portfolio || !(S.meta && S.meta.has_data)) return;
+  try { S.portfolio = await api("/api/portfolio"); S.portfolioError = null; }
+  catch (e) { S.portfolioError = e.message; }
+}
+
+/* ---------- form: validation and payload ---------- */
+function leaseMonths() {
+  const n = Number(S.deal.lease_len);
+  if (!(n > 0)) return null;
+  return S.deal.lease_unit === "years" ? n * 12 : n;
+}
+function checkSize() {
+  const n = Number(S.deal.size_sqft);
+  if (S.deal.size_sqft === "") return null;
+  if (!(n > 0)) return { kind: "bad", text: "Please enter a number above zero, or leave this blank." };
+  if (n > 5000000) return { kind: "bad", text: "That is larger than we can handle (5,000,000 sq ft)." };
+  if (n < 100) return { kind: "warn", text: "That is very small. Is this the number of sq ft?" };
+  return { kind: "", text: `That is a ${tierName(sizeBand(n)).toLowerCase()} deal.` };
+}
+function checkLease() {
+  if (S.deal.lease_len === "") return null;
+  const m = leaseMonths();
+  if (m === null) return { kind: "bad", text: "Please enter a number above zero, or leave this blank." };
+  if (m > 600) return { kind: "bad", text: "That is longer than 50 years. Did you mean a different unit?" };
+  if (m > 240) return { kind: "warn", text: "That is a very long lease (over 20 years). Is that right?" };
+  return { kind: "", text: `That is ${num(m, 1)} months.` };
+}
+function checkRent() {
+  if (S.deal.rent_psf === "") return null;
+  const n = Number(S.deal.rent_psf);
+  if (!(n > 0)) return { kind: "bad", text: "Please enter a number above zero, or leave this blank." };
+  if (n > 1000) return { kind: "bad", text: "That is too high. Rent here is per sq ft per month." };
+  if (n > 100) return { kind: "warn", text: "That looks like a monthly total. We want the rent for one sq ft for one month, usually between 2 and 25." };
+  return null;
+}
+const noteHtml = (c) => (c ? h`<p class="note ${c.kind}">${c.text}</p>`.s : "");
+function refreshNotes() {
+  $("#size_note").innerHTML = noteHtml(checkSize());
+  $("#lease_note").innerHTML = noteHtml(checkLease());
+  $("#rent_note").innerHTML = noteHtml(checkRent());
+}
+function validateAll() {
+  const bad = [checkSize(), checkLease(), checkRent()].find((c) => c && c.kind === "bad");
+  return bad ? bad.text : "";
+}
+function dealPayload() {
+  const d = S.deal, deal = {};
+  const text = { account_name: d.account_name, industry: d.industry, property_name: d.property_name, agent_name: d.agent_name, notes: d.notes };
+  for (const [k, v] of Object.entries(text)) if (String(v).trim()) deal[k] = String(v).trim();
+  if (Number(d.size_sqft) > 0) deal.size_sqft = Number(d.size_sqft);
+  const m = leaseMonths(); if (m) deal.lease_term_months = m;
+  if (Number(d.rent_psf) > 0) deal.gross_signing_rent_psf = Number(d.rent_psf);
+  return deal;
+}
+const hasSignal = () => { const p = dealPayload(); return Boolean(p.industry || p.size_sqft || p.lease_term_months || p.property_name); };
+
+function fillForm() {
+  for (const el of document.querySelectorAll("[data-field]")) {
+    const v = S.deal[el.dataset.field];
+    if (v !== undefined && v !== null) el.value = v;
+  }
+  const d = S.deal;
+  if (d.rent_psf || d.property_name || d.account_name || d.agent_name || d.notes) $("#more").open = true;
+  refreshNotes();
+}
+function fillIndustries() {
+  const sel = $("#industry");
+  const keep = S.deal.industry;
+  sel.innerHTML = '<option value="">Not sure</option>' + ((S.meta && S.meta.industries) || []).map((i) => `<option value="${esc(i)}">${esc(i)}</option>`).join("");
+  sel.value = keep || "";
+}
+function fillWriters() {
+  const provs = ((S.meta && S.meta.providers) || []).filter((p) => p.name !== "template" && p.available);
+  $("#writer-list").innerHTML = h`
+    <label class="radio"><input type="radio" name="prov" value="template" ${S.provider === "template" ? raw("checked") : ""} />
+      <span>Standard summary (built in, instant, nothing leaves this computer)</span></label>
+    ${provs.map((p) => h`<label class="radio"><input type="radio" name="prov" value="${p.name}" ${S.provider === p.name ? raw("checked") : ""} />
+      <span>${p.label}${p.locality === "cloud" ? " (sends your deal details, without names, over the internet)" : " (runs on this computer, can take up to a minute)"}</span></label>`)}
+    ${provs.length ? "" : h`<p class="help">No writing assistant is running, so the standard summary is used. The numbers are the same.</p>`}`.s;
+}
+function updateAutoHint() {
+  $("#auto-hint").textContent = S.provider === "template"
+    ? "The answer updates as you type."
+    : "Press Check this deal. A writing assistant is slower, so it does not run as you type.";
+}
+
+/* ---------- top strip, data loading ---------- */
+function renderTop() {
+  const m = S.meta;
+  $("#top-status").innerHTML = m && m.has_data ? h`<b>${plural(m.deal_count, "deal")}</b> loaded` .s : "No records loaded yet";
+}
+function loadPanel() {
+  return h`<div class="box o" id="load-panel"><h2>Load your leasing records</h2><div class="bd">
+    <p>Choose your Excel file (<strong>.xlsx</strong>) and we'll read it on this computer. Nothing is uploaded to the internet.</p>
+    <label for="file">Excel file</label>
+    <input id="file" type="file" accept=".xlsx" />
+    <div class="actions">
+      <button type="button" data-act="upload">Load this file</button>
+      <button type="button" class="secondary" data-act="sample">Use the sample file</button>
+    </div>
+    <p id="load-msg" class="note" role="status" ${S.loadMsg ? "" : "hidden"}>${S.loadMsg}</p>
+  </div></div>`;
+}
+function setLoadMsg(text, kind = "") {
+  S.loadMsg = text;
+  const el = $("#load-msg");
+  if (el) { el.hidden = !text; el.textContent = text; el.className = "note " + kind; }
+}
+async function doUpload() {
+  const input = $("#file");
+  const file = input && input.files && input.files[0];
+  if (!file) { setLoadMsg("Please choose an Excel (.xlsx) file first.", "warn"); return; }
+  setLoadMsg("Loading your records. This can take a little while...");
+  try {
+    const result = await api("/api/upload?filename=" + encodeURIComponent(file.name), { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file });
+    await afterLoad(result);
+  } catch (e) { setLoadMsg(e.message + " Make sure it is a normal Excel (.xlsx) file.", "bad"); }
+}
+async function doSample() {
+  setLoadMsg("Loading the sample records...");
+  try {
+    const result = await api("/api/ingest", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    await afterLoad(result);
+  } catch (_e) { setLoadMsg("We couldn't find the sample file on this computer. Please choose your own Excel file above.", "bad"); }
+}
+async function afterLoad(result) {
+  S.deals = null; S.portfolio = null; S.scorecard = null; S.run = null; S.past = null;
+  await loadMeta();
+  S.loadMsg = `Done. Loaded ${plural(result.deals_loaded, "deal")} from ${plural(result.source_rows, "row")}.`;
+  fillIndustries();
+  renderTop(); renderAnswer(); renderRight(); renderPastActive();
+  const slot = $("#load-slot");
+  if (slot.innerHTML) slot.innerHTML = loadPanel().s;
+  await Promise.all([loadDeals(), loadPortfolio()]);
+  renderPicture(); renderRight();
+  say(S.loadMsg);
+}
+
+/* ---------- past deals ---------- */
+function renderPastList(q) {
+  const list = $("#past-list"), count = $("#past-count");
+  const term = q.trim().toLowerCase();
+  if (!term) { list.innerHTML = ""; count.textContent = S.deals ? `${plural(S.deals.length, "past deal")} to choose from.` : ""; return; }
+  const rows = (S.deals || []).filter((d) => [d.deal_name, d.property_name, d.industry, d.lead_agent].some((x) => String(x || "").toLowerCase().includes(term)));
+  count.textContent = `${plural(rows.length, "deal")} match${rows.length === 1 ? "es" : ""}${rows.length > 8 ? ". Showing 8. Type more to narrow." : "."}`;
+  list.innerHTML = rows.slice(0, 8).map((d) => `<button type="button" data-act="pick-past" data-name="${esc(d.deal_name)}">
+      <span><strong>${esc(d.deal_name)}</strong><span class="sub">${esc(d.industry || "Business type not recorded")}${d.property_name ? " &middot; " + esc(d.property_name) : ""}</span></span>
+      <span class="sub" style="text-align:right">${isNum(d.size_sqft) ? num(d.size_sqft) + " sq ft" : "size not known"}</span></button>`).join("");
+}
+function renderPastActive() {
+  $("#past-active").innerHTML = S.past
+    ? h`<p class="note">Showing the past deal <strong>${S.past.deal_name}</strong>.</p>
+        <div class="actions"><button type="button" class="secondary small" data-act="back-to-mine">Use my own details</button></div>`.s
+    : "";
+}
+
+/* ---------- running an evaluation ---------- */
+const STEP_TEXT = {
+  validate_input: "Reading your details", sql_baseline: "Finding deals like this one",
+  analogue_retrieval: "Picking the closest matches", llm_synthesis: "Writing your summary", assemble_scorecard: "Putting it together",
+};
+const STEP_ORDER = Object.keys(STEP_TEXT);
+
+function startRun(payload) {
+  clearTimeout(S.debounce);
+  if (S.controller) S.controller.abort();
+  S.controller = new AbortController();
+  const run = { payload, steps: Object.fromEntries(STEP_ORDER.map((k) => [k, { status: "waiting", ms: null, summary: "" }])), slow: false, done: false, error: null, retried: false };
+  S.run = run; S.feedbackSent = false;
+  clearTimeout(S.slowTimer);
+  S.slowTimer = setTimeout(() => { if (S.run === run && !run.done) { run.slow = true; paintProgress(); } }, 8000);
+  say("Checking your deal.");
+  renderAnswer();
+  streamEvaluate(run, S.controller.signal);
+}
+async function streamEvaluate(run, signal) {
+  try {
+    const res = await fetch("/api/evaluate/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(run.payload), signal });
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`HTTP ${res.status}: ${body}`);
+      let body = null; try { body = await res.json(); } catch (_e) { /* ignore */ }
+      throw new ApiError(friendlyError(res.status, body), res.status);
     }
     const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
       const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let idx;
-      while ((idx = buffer.indexOf("\n\n")) >= 0) {
-        const chunk = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-        const line = chunk.split("\n").find((l) => l.startsWith("data: "));
-        if (line) handleEvent(JSON.parse(line.slice(6)));
+      buf += dec.decode(value || new Uint8Array(), { stream: !done });
+      const frames = buf.split(/\r?\n\r?\n/);
+      buf = done ? "" : frames.pop();
+      if (done && frames.length && !frames[frames.length - 1]) frames.pop();
+      for (const frame of frames) {
+        const data = frame.split(/\r?\n/).filter((l) => l.startsWith("data:")).map((l) => l.slice(5).replace(/^ /, "")).join("\n");
+        if (data) { try { onEvent(JSON.parse(data), run); } catch (_e) { /* ignore malformed frame */ } }
       }
+      if (done) break;
     }
-  } catch (err) {
-    runStatus.textContent = "failed";
-    log(`✖ ${err.message}`, "err");
-    scorecardEl.innerHTML = `<div class="card na">${esc(err.message)}</div>`;
-  } finally {
-    button.disabled = false;
+    if (S.run === run && !run.done && !run.error) failRun(run, "The check stopped before it finished. Please try again.");
+  } catch (e) {
+    if (e.name === "AbortError" || S.run !== run) return;
+    if (e.status === 429 && !run.retried) { run.retried = true; setTimeout(() => { if (S.run === run) streamEvaluate(run, S.controller.signal); }, 1500); return; }
+    failRun(run, e instanceof ApiError ? e.message : "We lost contact with the app. Please check that it is running, then try again.");
   }
 }
-
-function updateProviderStatus() {
-  const name = document.getElementById("provider").value;
-  const info = catalog.find((c) => c.name === name);
-  const status = document.getElementById("provider_status");
-  if (!info) return;
-  const cls = info.available ? "up" : "down";
-  status.innerHTML = `${esc(info.locality)} · <span class="status-pill ${cls}">${info.available ? "available" : "unavailable"}</span> ${esc(info.detail)}`;
-  const modelInput = document.getElementById("model");
-  modelInput.placeholder = info.default_model ?? "no model needed";
+function onEvent(ev, run) {
+  if (S.run !== run) return;
+  const steps = run.steps;
+  if (ev.type === "node_start" && steps[ev.node]) steps[ev.node].status = "running";
+  else if (ev.type === "node_end" && steps[ev.node]) Object.assign(steps[ev.node], { status: "done", ms: Number(ev.duration_ms), summary: ev.summary || "" });
+  else if (ev.type === "node_error" && steps[ev.node]) Object.assign(steps[ev.node], { status: "error", summary: ev.error || "" });
+  else if (ev.type === "run_complete") {
+    clearTimeout(S.slowTimer);
+    run.done = true; S.scorecard = ev.scorecard;
+    renderAnswer(); renderRight();
+    say(`Answer ready. ${isNum(ev.scorecard.estimates.estimated_fee_sgd) ? "Typical fee " + money(ev.scorecard.estimates.estimated_fee_sgd) + "." : ""}`);
+    return;
+  } else if (ev.type === "run_error") { failRun(run, "Something went wrong while checking this deal. Your details are still here, so you can try again."); return; }
+  paintProgress();
+}
+function failRun(run, message) {
+  clearTimeout(S.slowTimer);
+  run.error = message; run.done = true;
+  renderAnswer();
+  say(message);
+}
+function progressHtml(run) {
+  return h`<ol class="flow" id="progress-list">${STEP_ORDER.map((k) => {
+    const s = run.steps[k];
+    return h`<li class="${s.status}">${STEP_TEXT[k]}${s.status === "done" && Number.isFinite(s.ms) ? h`<small>${num(s.ms, 0)} ms</small>` : s.status === "running" ? h`<small>working...</small>` : ""}<span class="sr-only"> ${s.status}</span></li>`;
+  })}</ol>
+  <div class="bar-run" aria-hidden="true"><i></i></div>
+  <p class="help" id="slow">${run.slow ? "Still working. A writing assistant on this computer can take up to a minute." : "This usually takes a few seconds."}</p>
+  <div class="actions"><button type="button" class="secondary small" data-act="stop">Stop</button></div>`;
+}
+function paintProgress() {
+  const run = S.run;
+  const box = $("#progress-box");
+  if (!run || !box || run.done) return;
+  box.innerHTML = progressHtml(run).s;
+}
+function scheduleRun() {
+  clearTimeout(S.debounce);
+  if (S.provider !== "template") return;
+  if (S.past) return;
+  if (validateAll() || !hasSignal()) { if (!hasSignal() && S.run && S.scorecard) { /* keep last answer visible */ } return; }
+  S.debounce = setTimeout(runNew, AUTO_DELAY_MS);
+}
+function runNew() {
+  const msg = validateAll(), box = $("#form-msg");
+  if (msg) { box.hidden = false; box.textContent = msg; return; }
+  box.hidden = true;
+  if (S.past) { S.past = null; renderPastActive(); }
+  startRun({ deal: dealPayload(), llm: { provider: S.provider, model: S.model || null } });
 }
 
-async function loadMeta() {
-  const meta = await (await fetch("/api/meta")).json();
-  catalog = meta.providers;
-  const providerSelect = document.getElementById("provider");
-  providerSelect.innerHTML = catalog.map((c) => `<option value="${c.name}">${esc(c.label)}</option>`).join("");
-  providerSelect.value = meta.default_llm.provider;
-  if (meta.default_llm.model) document.getElementById("model").value = meta.default_llm.model;
-  updateProviderStatus();
+/* ---------- answer text helpers ---------- */
+const MATCH_TEXT = {
+  "industry + size tier": "deals in the same line of business and a similar size",
+  "size tier": "deals of a similar size, in any line of business",
+  "industry": "deals in the same line of business, of any size",
+  "all deals": "all your deals",
+  "all deals (insufficient matches)": "all your deals, because there were too few close matches",
+};
+function matchText(level, asked) {
+  const base = MATCH_TEXT[level] || level;
+  const wanted = [asked.industry && "line of business", asked.size_sqft && "size"].filter(Boolean);
+  const exact = level === "industry + size tier" || (level === "size tier" && !asked.industry) || (level === "industry" && !asked.size_sqft);
+  if (exact || !wanted.length) return base;
+  return `${base}. There weren't enough deals matching both your ${wanted.join(" and ")}, so we widened the search`;
+}
+const EFFORT_TEXT = { "Tier 1 - High Touch": "a high-touch approach", "Tier 2 - Standard": "a standard approach", "Tier 3 - Light": "a light-touch approach" };
+const TRUST = { HIGH: ["ok", "High"], MEDIUM: ["warn", "Medium"], LOW: ["bad", "Low"] };
+function likeWord(sim) { const s = Number(sim); return s >= 0.7 ? "Very alike" : s >= 0.4 ? "Fairly alike" : "Loosely alike"; }
+function friendlyGap(text) {
+  const t = String(text);
+  const rules = [
+    [/WON\/LOST/i, "We can't say how likely you are to win this.", "Your records don't say which deals were won or lost. Start recording lost deals to unlock this."],
+    [/deal-created|sales cycle|timeframe/i, "We can't estimate how long this will take.", "Your records don't show when each conversation started."],
+    [/qualification|fit score/i, "We can't score how good a fit this client is.", "Budget, decision-maker, need and timing aren't recorded yet."],
+    [/Size not provided/i, "You didn't give a size, so we couldn't compare by size.", "Add the space needed for a sharper answer."],
+    [/Lease term not provided/i, "You didn't give a lease length.", "Add it for a fuller picture."],
+  ];
+  for (const [re, said, fix] of rules) if (re.test(t)) return { said, fix };
+  const few = t.match(/Only (\d+) comparables matched/i);
+  if (few) return { said: `Only ${few[1]} similar deals were found, so treat the numbers as a rough guide.`, fix: "Leaving out the building or choosing 'Not sure' for the business type can widen the search." };
 
-  const industrySelect = document.getElementById("industry");
-  industrySelect.insertAdjacentHTML("beforeend", meta.industries.map((i) => `<option value="${esc(i)}">${esc(i)}</option>`).join(""));
+  const fee = t.match(/Only (\d+) comparables have fee data/i);
+  if (fee) return { said: `Only ${fee[1]} of the similar deals have a recorded fee, so the fee is a rough guide.`, fix: "" };
+  return { said: t, fix: "" };
+}
+function friendlyWarning(text) {
+  const t = String(text);
+  if (/^LLM '/i.test(t)) return "The writing assistant didn't answer, so a standard summary was used. Everything else is unaffected.";
+  if (/Size not provided/i.test(t)) return "";
+  return t;
+}
+function splitRisk(item) {
+  const m = String(item).match(/^Risk:\s*(.*?)\s*Mitigation:\s*(.*)$/is);
+  return m ? { risk: m[1], fix: m[2] } : { risk: String(item), fix: "" };
+}
+function headlineFor(sc) {
+  const b = sc.evidence.baseline, est = sc.estimates;
+  if (!isNum(est.estimated_fee_sgd)) return h`We couldn't work out a typical fee for this deal, because none of the similar deals has a recorded fee.`;
+  const range = isNum(b.fee_p25_sgd) && isNum(b.fee_p75_sgd)
+    ? h` (most fall between <strong>${money(b.fee_p25_sgd)}</strong> and <strong>${money(b.fee_p75_sgd)}</strong>)` : "";
+  return h`Deals like this typically earn about <strong>${money(est.estimated_fee_sgd)}</strong>${range}. We found <strong>${plural(b.n_comparables, "similar deal")}</strong>.`;
 }
 
-async function loadMockDeals() {
-  const deals = await (await fetch("/api/deals?limit=1000")).json();
-  const select = document.getElementById("mock_deal");
-  select.innerHTML = '<option value="">— choose —</option>' + deals.map((d, i) => `<option value="${i}">${esc(d.deal_name)}</option>`).join("");
-  select.dataset.deals = JSON.stringify(deals);
+/* ---------- answer panel ---------- */
+function renderAnswer() {
+  const root = $("#answer");
+  const run = S.run, sc = S.scorecard;
+  if (!S.meta) { root.innerHTML = h`<div class="box"><h2>Answer</h2><div class="bd"><p>Loading...</p></div></div>`.s; return; }
+  if (!S.meta.has_data) {
+    root.innerHTML = h`<div class="banner"><strong>Welcome.</strong> There are no leasing records yet. Load your records to get started.</div>${loadPanel()}`.s;
+    return;
+  }
+  const parts = [];
+  if (run && run.error) {
+    parts.push(h`<div class="banner bad" role="alert"><strong>We couldn't finish the check.</strong> ${run.error}
+      <div class="actions"><button type="button" data-act="retry">Try again with the same details</button></div></div>`);
+  } else if (run && !run.done) {
+    parts.push(h`<section class="box y"><h2>Checking your deal</h2><div class="bd" id="progress-box">${progressHtml(run)}</div></section>`);
+  }
+  if (sc) parts.push(answerBoxes(sc, Boolean(run && !run.done)));
+  else if (!(run && !run.done)) {
+    parts.push(h`<section class="box o"><h2>Your answer appears here</h2><div class="bd">
+      <p class="headline">Tell us what the client needs on the left.</p>
+      <ul class="tidy"><li>Choose a type of business, or a size, or a lease length. Any one is enough to start.</li>
+        <li>The answer updates as you type. More detail gives a sharper answer.</li>
+        <li>Or pick a past deal on the left to see how well the tool would have predicted it.</li></ul></div></section>`);
+  }
+  root.innerHTML = parts.map(part).join("");
+}
+function answerBoxes(sc, busy) {
+  const b = sc.evidence.baseline, est = sc.estimates, eff = sc.effort_allocation;
+  const [trustKind, trustWord] = TRUST[est.confidence_level] || ["", est.confidence_level];
+  const analogues = sc.evidence.analogues || [];
+  const gaps = (sc.data_gaps || []).map(friendlyGap);
+  const warnings = (sc.warnings || []).map(friendlyWarning).filter(Boolean);
+  const risks = (sc.closing_playbook.key_risks_and_mitigations || []).map(splitRisk);
+  const past = S.past;
+  const actual = past ? Number(past.actual_fee_sgd ?? past.actual_gross_fee_sgd) : NaN;
+  let compare = "";
+  if (past) {
+    if (Number.isFinite(actual) && actual > 0 && isNum(est.estimated_fee_sgd)) {
+      const diff = ((est.estimated_fee_sgd - actual) / actual) * 100;
+      const how = Math.abs(diff) < 1 ? "almost exactly the same as" : `${num(Math.abs(diff))}% ${diff < 0 ? "below" : "above"}`;
+      compare = h`<section class="box y"><h2>What really happened</h2><div class="bd">
+        <p>This deal actually earned <strong>${money(actual)}</strong>. Our estimate of ${money(est.estimated_fee_sgd)} was ${how} that.</p>
+        <p class="help">One deal can't prove the tool is right or wrong. It is a reality check.</p></div></section>`;
+    } else compare = h`<section class="box y"><h2>What really happened</h2><div class="bd"><p>This deal has no fee on record, so we can't compare.</p></div></section>`;
+  }
+  const asked = (S.run && S.run.payload && S.run.payload.deal) || {};
+  const nextSteps = [
+    isNum(est.estimated_fee_sgd)
+      ? h`Plan on <strong>${EFFORT_TEXT[eff.tier] || eff.tier}</strong>, up to about <strong>${num(eff.max_recommended_hours)} hours</strong>. This is a starting guide, not a measured figure.`
+      : h`Plan on <strong>${EFFORT_TEXT[eff.tier] || eff.tier}</strong> until you know more about the fee. This is a starting guide.`,
+    ...(eff.recommended_resources || []).map((r) => h`${r}`),
+    analogues.length ? h`Look at the closest past deals on the right before you speak to the client.` : "",
+    gaps.length ? h`Add any missing details on the left to sharpen this answer.` : "",
+  ].filter(Boolean);
+  return h`<div class="stack ${busy ? "busy-wrap" : ""}">
+    <section class="box o ${busy ? "busy" : ""}"><h2>${past ? "Past deal check: " + past.deal_name
+ : "What to expect"}</h2><div class="bd">
+      <p class="headline">${headlineFor(sc)}</p>
+      <p><strong>How much to trust this:</strong> <span class="badge ${trustKind}">${trustWord}</span>
+        It rests on ${plural(b.n_with_fee, "similar deal")} with a recorded fee, out of ${num(b.n_comparables)} found: ${matchText(b.match_level, asked)}.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="v">${money(est.estimated_fee_sgd)}</div><div class="l">Typical fee (the middle value)</div></div>
+        <div class="kpi"><div class="v">${isNum(b.median_size_sqft) ? num(b.median_size_sqft) + " sq ft" : "n/a"}</div><div class="l">Typical size of similar deals</div></div>
+        <div class="kpi"><div class="v">${isNum(b.median_lease_term_months) ? num(b.median_lease_term_months / 12, 1) + " years" : "n/a"}</div><div class="l">Typical lease length</div></div>
+      </div>
+      ${est.win_probability_pct === null
+        ? h`<p class="help">Chance of winning: we can't say. Your records don't say which deals were won or lost.</p>`
+        : h`<p><strong>Chance of winning:</strong> ${pct(est.win_probability_pct)} of similar decided deals were won.</p>`}
+    </div></section>
+    ${compare}
+    <div class="cols2">
+      <section class="box ${busy ? "busy" : ""}"><h2>What to do next</h2><div class="bd"><ul class="todo">${nextSteps.map((s) => h`<li><span>${s}</span></li>`)}</ul></div></section>
+      <section class="box y ${busy ? "busy" : ""}"><h2>Risks and how to handle them</h2><div class="bd">
+        ${sc.narrative_source !== "template" && sc.closing_playbook.winning_strategy ? h`<p>${sc.closing_playbook.winning_strategy}</p>` : ""}
+        ${risks.length ? risks.map((r) => h`<div class="risk"><strong>Watch out for:</strong> ${r.risk}${r.fix ? h`<br><strong>What to do:</strong> ${r.fix}` : ""}</div>`) : h`<p class="help">No specific risks were flagged.</p>`}
+        ${sc.narrative_source === "llm" ? h`<p class="help">Written with the writing assistant. The numbers are always calculated by the tool itself.</p>` : ""}
+      </div></section>
+      <section class="box ${busy ? "busy" : ""}"><h2>What we couldn't tell you, and why</h2><div class="bd">
+        ${gaps.length ? gaps.map((g) => h`<div class="gap"><strong>${g.said}</strong>${g.fix ? h`<div class="fix">${g.fix}</div>` : ""}</div>`) : h`<p class="help">Nothing important is missing.</p>`}
+        ${warnings.map((w) => h`<div class="gap"><strong>Note:</strong> ${w}</div>`)}
+      </div></section>
+      <section class="box o no-print" id="feedback"><h2>Help us get better</h2><div class="bd" id="feedback-body">${feedbackHtml()}</div></section>
+    </div>
+    <details class="tech box"><summary class="bd" style="display:block">Show me how this was worked out</summary><div class="bd">${techHtml(sc)}</div></details>
+  </div>`;
+}
+function feedbackHtml() {
+  if (S.feedbackSent) return h`<p role="status"><strong>Thank you.</strong> Your answer has been saved on this computer.</p>`;
+  return h`<p>Was this useful?</p>
+    <div class="actions" style="margin-top:.4rem">
+      <button type="button" class="secondary small" data-act="fb-useful" data-v="yes">Yes, useful</button>
+      <button type="button" class="secondary small" data-act="fb-useful" data-v="no">Not really</button></div>
+    <label for="fb-outcome">What actually happened with this deal? <span class="help">(optional)</span></label>
+    <select id="fb-outcome"><option value="">Not known yet</option><option value="WON">We won it</option><option value="LOST">We lost it</option><option value="DROPPED">It was dropped</option></select>
+    <div class="actions"><button type="button" class="small" data-act="fb-outcome">Save what happened</button></div>
+    <p class="help">Recording wins and losses is how this tool will learn to estimate your chance of winning.</p>`;
+}
+async function sendFeedback(body) {
+  const box = $("#feedback-body");
+  try {
+    await api("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ deal_id: S.scorecard.deal_id }, body)) });
+    S.feedbackSent = true;
+    if (box) box.innerHTML = feedbackHtml().s;
+  } catch (e) {
+    if (box) box.insertAdjacentHTML("beforeend", `<p class="note bad" role="alert">${esc(e.message)}</p>`);
+  }
+}
+function techHtml(sc) {
+  const run = S.run;
+  const rows = STEP_ORDER.map((k) => {
+    const s = run && run.steps[k];
+    return h`<tr><td>${k}</td><td>${s ? s.status : "n/a"}</td><td class="num">${s && Number.isFinite(s.ms) ? num(s.ms, 1) + " ms" : ""}</td><td>${s ? s.summary : ""}</td></tr>`;
+  });
+  return h`<p class="help">For technical colleagues: the steps the tool ran, and the raw result.</p>
+    <div class="table-wrap"><table class="t"><thead><tr><th>Step</th><th>Status</th><th class="num">Time</th><th>What it found</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="help">Summary source: ${sc.narrative_source} &middot; provider: ${sc.llm_provider}${sc.llm_model ? " &middot; model: " + sc.llm_model : ""}</p>
+    <pre>${JSON.stringify(sc, null, 2)}</pre>`;
 }
 
-function fillFromMock(event) {
-  const index = event.target.value;
-  if (index === "") return;
-  const d = JSON.parse(event.target.dataset.deals ?? "[]")[Number(index)];
-  if (!d) return;
-  document.getElementById("deal_name").value = d.deal_name ?? "";
-  document.getElementById("account_name").value = "";
-  document.getElementById("industry").value = d.industry ?? "";
-  document.getElementById("size_sqft").value = d.size_sqft ?? "";
-  document.getElementById("lease_term_months").value = d.lease_term_months ?? "";
-  document.getElementById("gross_signing_rent_psf").value = d.gross_signing_rent_psf ?? "";
-  document.getElementById("property_name").value = d.property_name ?? "";
-  document.getElementById("agent_name").value = d.lead_agent ?? "";
-  document.getElementById("mock_hint").textContent =
-    `Backtest: excluded from its own comparables. Actual gross fee on record: SGD ${d.actual_gross_fee_sgd ? Number(d.actual_gross_fee_sgd).toLocaleString() : "n/a"}.`;
+/* ---------- right rail ---------- */
+function renderRight() {
+  const sc = S.scorecard, p = S.portfolio;
+  const analogues = sc ? (sc.evidence.analogues || []) : [];
+  const list = sc
+    ? (analogues.length
+      ? h`<ol class="rank">${analogues.map((a, i) => h`<li><div><span class="no">${i + 1}</span><span class="nm">${a.deal_name}</span></div>
+          <div class="help">${a.industry || "Business type not recorded"}</div>
+          <div>${isNum(a.size_sqft) ? num(a.size_sqft) + " sq ft" : "Size not known"} &middot; ${isNum(a.lease_term_months) ? num(a.lease_term_months / 12, 1) + " yrs" : "length not known"}<br>Fee: <strong>${money(a.gross_fee_sgd)}</strong></div>
+          <div class="chips"><span class="badge">${likeWord(a.similarity)}</span>${(a.matched_on || []).map((m) => h`<span class="chip">${m}</span>`)}</div></li>`)}</ol>`
+      : h`<p>We couldn't find similar deals. Try leaving out the building or choosing "Not sure" for the business type.</p>`)
+    : h`<p class="help">The closest past deals show here once you check a deal.</p>`;
+  const facts = p
+    ? h`<dl class="facts"><dt>Deals on record</dt><dd>${num(p.totals.deals)}</dd><dt>Different clients</dt><dd>${num(p.totals.accounts)}</dd>
+        <dt>Total fees</dt><dd>${moneyShort(p.totals.total_fee_sgd)}</dd><dt>Typical fee</dt><dd>${moneyShort(p.totals.median_fee_sgd)}</dd></dl>`
+    : h`<p class="help">${S.meta && S.meta.has_data ? "Loading your records..." : "No records loaded yet."}</p>`;
+  $("#rail-right").innerHTML = h`
+    <section class="box rail"><h2>Closest past deals</h2><div class="bd">${list}</div></section>
+    <section class="box rail y"><h2>Your records</h2><div class="bd">${facts}</div></section>`.s;
 }
 
-async function ingestMock() {
-  const status = document.getElementById("ingest_status");
-  status.textContent = "ingesting…";
-  const res = await fetch("/api/ingest", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-  const body = await res.json();
-  status.textContent = res.ok ? `loaded ${body.deals_loaded} deals from ${body.source_rows} rows` : `error: ${body.detail}`;
-  await loadMockDeals();
+/* ---------- big picture ---------- */
+function bars(items, { valueKey = "value", fmtVal = (v) => pct(v), max = null, alt = false } = {}) {
+  const top = max ?? Math.max(1, ...items.map((i) => Number(i[valueKey]) || 0));
+  return h`<div class="cov">${items.map((i) => h`<div class="row-bar"><div class="name">${i.label}${i.sub ? h`<span class="sub">${i.sub}</span>` : ""}</div>
+    <div class="track" aria-hidden="true"><i class="${alt ? "alt" : ""}" style="width:${Math.max(1, Math.min(100, ((Number(i[valueKey]) || 0) / top) * 100)).toFixed(1)}%"></i></div>
+    <div class="val">${fmtVal(i[valueKey])}</div></div>`)}</div>`;
+}
+function columns(items, { labelKey, valueKey, fmtVal = (v) => num(v) }) {
+  const top = Math.max(1, ...items.map((i) => Number(i[valueKey]) || 0));
+  return h`<div class="colchart" role="img" aria-label="${items.map((i) => `${i[labelKey]}: ${fmtVal(i[valueKey])}`).join(", ")}">${items.map((i) =>
+    h`<div class="col"><b>${fmtVal(i[valueKey])}</b><i style="height:${Math.max(1, ((Number(i[valueKey]) || 0) / top) * 100).toFixed(1)}%"></i><span>${i[labelKey]}</span></div>`)}</div>`;
+}
+function histogram(fd) {
+  const bins = fd.bins || [];
+  if (!bins.length) return h`<p class="help">There are too few fees on record to draw a chart.</p>`;
+  const W = 680, H = 190, L = 8, B = 28, T = 14;
+  const bw = (W - L * 2) / bins.length;
+  const top = Math.max(1, ...bins.map((b) => b.count));
+  const lo = Math.log(bins[0].lo), hi = Math.log(bins[bins.length - 1].hi);
+  const xOf = (v) => L + Math.min(1, Math.max(0, (Math.log(Math.max(v, bins[0].lo)) - lo) / (hi - lo))) * (W - L * 2);
+  const rects = bins.map((b, i) => {
+    const bh = (b.count / top) * (H - B - T);
+    return `<rect x="${(L + i * bw + 1).toFixed(1)}" y="${(H - B - bh).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${bh.toFixed(1)}" fill="#123f7f" stroke="#0b1f3a"><title>${esc(moneyShort(b.lo))} to ${esc(moneyShort(b.hi))}: ${b.count} deals</title></rect>`;
+  }).join("");
+  const labels = bins.map((b, i) => (i % 2 === 0 ? `<text x="${(L + i * bw).toFixed(1)}" y="${H - 10}">${esc(compact(b.lo))}</text>` : "")).join("");
+  const band = isNum(fd.p25) && isNum(fd.p75) ? `<rect x="${xOf(fd.p25).toFixed(1)}" y="${T - 6}" width="${(xOf(fd.p75) - xOf(fd.p25)).toFixed(1)}" height="${H - B - T + 6}" fill="#ffa11a" opacity=".3"/>` : "";
+  const mid = isNum(fd.p50) ? `<line x1="${xOf(fd.p50).toFixed(1)}" x2="${xOf(fd.p50).toFixed(1)}" y1="${T - 6}" y2="${H - B}" stroke="#a31414" stroke-width="2.5"/><text x="${(xOf(fd.p50) + 4).toFixed(1)}" y="${T + 4}" style="fill:#a31414;font-weight:700">typical</text>` : "";
+  const summary = `Fees range from ${moneyShort(bins[0].lo)} to ${moneyShort(bins[bins.length - 1].hi)}. Typical ${moneyShort(fd.p50)}; half of deals between ${moneyShort(fd.p25)} and ${moneyShort(fd.p75)}.`;
+  return h`<svg class="hist" viewBox="0 0 ${W} ${H}" role="img" aria-label="${summary}">${raw(band + rects + mid + labels)}</svg>
+    <p class="help">Each bar is a fee range (SGD). Taller means more deals. The shaded band is where half of all deals fall.</p>`;
+}
+const nameRows = (rows, fmtSub) => rows.map((r) => ({ label: r.name || "Not recorded", sub: fmtSub(r), value: r.share_pct }));
+
+function renderPicture() {
+  const root = $("#picture");
+  if (!(S.meta && S.meta.has_data)) { root.innerHTML = ""; return; }
+  if (S.portfolioError) { root.innerHTML = h`<div class="section-bar">The big picture</div><div class="banner bad" role="alert">${S.portfolioError}</div>`.s; return; }
+  if (!S.portfolio) { root.innerHTML = h`<div class="section-bar">The big picture</div><div class="box"><div class="bd"><p>Loading your records...</p></div></div>`.s; return; }
+  const p = S.portfolio, t = p.totals, fd = p.fee_distribution, c = p.concentration, bi = p.billing, le = p.lease_expiry, sea = p.seasonality;
+  const lowCov = (p.coverage || []).filter((x) => x.pct !== null && x.pct < 60).map((x) => x.label.toLowerCase());
+  const topInd = (p.by_industry || []).find((i) => i.industry !== "Not recorded");
+  const noInd = (p.by_industry || []).find((i) => i.industry === "Not recorded");
+  const unbilled = bi.not_billed;
+  root.innerHTML = h`
+    <div class="section-bar">The big picture <small>What your own records show, as of ${niceDate(p.as_of)}</small></div>
+    <div class="stack">
+    <div class="kpis">
+      <div class="kpi"><div class="v">${num(t.deals)}</div><div class="l">Deals on record</div></div>
+      <div class="kpi"><div class="v">${num(t.accounts)}</div><div class="l">Different clients</div></div>
+      <div class="kpi"><div class="v">${moneyShort(t.total_fee_sgd)}</div><div class="l">Total fees (where recorded)</div></div>
+      <div class="kpi"><div class="v">${moneyShort(t.median_fee_sgd)}</div><div class="l">Typical fee per deal</div></div>
+    </div>
+    ${(p.notes || []).length ? h`<div class="banner" role="note"><strong>Worth knowing</strong><ul class="tidy">${p.notes.map((n) => h`<li>${n}</li>`)}</ul></div>` : ""}
+
+    <div class="cols2">
+      <section class="box"><h2>How complete is our data?</h2><div class="bd">
+        ${lowCov.length ? h`<p class="so-what">Be careful with anything based on: <strong>${lowCov.join(", ")}</strong>. Less than 6 in 10 deals have it.</p>` : ""}
+        ${bars((p.coverage || []).map((x) => ({ label: x.label, sub: `${num(x.n)} of ${num(x.total)} deals`, value: x.pct ?? 0 })), { max: 100 })}
+      </div></section>
+
+      <section class="box o"><h2>What does a typical deal look like?</h2><div class="bd">
+        <p class="so-what">${isNum(fd.p50) ? h`The typical fee is <strong>${money(fd.p50)}</strong>, but a few big deals pull the average up to ${money(t.total_fee_sgd / Math.max(1, t.n_with_fee))}. Half of all deals fall between <strong>${money(fd.p25)}</strong> and <strong>${money(fd.p75)}</strong>.` : "There aren't enough fees on record yet."}
+          ${fd.n_zero_or_missing ? h` ${plural(fd.n_zero_or_missing, "deal")} ${fd.n_zero_or_missing === 1 ? "has" : "have"} no fee recorded and ${fd.n_zero_or_missing === 1 ? "is" : "are"} left out.` : ""}</p>
+        ${histogram(fd)}
+      </div></section>
+
+      <section class="box y"><h2>Where does our income come from?</h2><div class="bd">
+        ${topInd ? h`<p class="so-what"><strong>${topInd.industry}</strong> brings in the most where the business type is known: ${pct(topInd.share_of_fees_pct)} of recorded fees, from ${plural(topInd.n, "deal")}.${noInd ? h` Careful: <strong>${pct(noInd.share_of_fees_pct)}</strong> of fees come from deals with no business type recorded.` : ""}</p>` : ""}
+        <h3>By line of business (share of fees)</h3>
+        ${bars((p.by_industry || []).map((i) => ({ label: i.industry, value: i.share_of_fees_pct,
+          sub: `${plural(i.n, "deal")} · typical fee ${moneyShort(i.n < 8 && isNum(i.shrunk_median_fee_sgd) ? i.shrunk_median_fee_sgd : i.median_fee_sgd)}${i.n < 8 ? " (adjusted: few deals)" : ""}` })))}
+        <h3>By deal size: share of deals and share of fees</h3>
+        <div class="table-wrap"><table class="t"><thead><tr><th>Size</th><th class="num">Deals</th><th class="num">Of deals</th><th class="num">Of fees</th><th class="num">Typical fee</th></tr></thead>
+        <tbody>${(p.by_size_tier || []).map((r) => h`<tr><td>${tierName(r.tier)}</td><td class="num">${num(r.n)}</td><td class="num">${pct(r.share_of_deals_pct)}</td><td class="num">${pct(r.share_of_fees_pct)}</td><td class="num">${moneyShort(r.median_fee_sgd)}</td></tr>`)}</tbody></table></div>
+      </div></section>
+
+      <section class="box"><h2>How much do we depend on a few clients?</h2><div class="bd">
+        ${isNum(c.top5_accounts_share_pct) ? h`<p class="so-what">Your <strong>top 5 clients</strong> account for <strong>${pct(c.top5_accounts_share_pct)}</strong> of recorded fees. ${c.top5_accounts_share_pct >= 40 ? "That is a lot riding on a few relationships." : "Your income is fairly spread out."}</p>` : ""}
+        <h3>Biggest clients</h3>${bars(nameRows((c.top_accounts || []).slice(0, 8), (r) => `${plural(r.deals, "deal")} · ${moneyShort(r.total_fee_sgd)}`))}
+        <h3>Biggest buildings</h3>${bars(nameRows((c.top_properties || []).slice(0, 8), (r) => `${plural(r.deals, "deal")} · ${moneyShort(r.total_fee_sgd)}`), { alt: true })}
+      </div></section>
+
+      <section class="box o"><h2>Who should we call?</h2><div class="bd">
+        <h3>Leases ending soon</h3>
+        <p class="so-what">${le.n_with_expiry ? h`<strong>${plural(le.calls.length, "past client")}</strong> ${le.calls.length === 1 ? "has" : "have"} a lease ending in the next 18 months. Only ${num(le.n_with_expiry)} of ${num(le.n_total)} deals have an end date, so there are probably more.` : "No lease end dates are recorded yet, so we can't list who to call."}</p>
+        ${le.n_with_expiry ? columns(le.buckets, { labelKey: "label", valueKey: "deals" }) : ""}
+        ${le.calls.length ? h`<div class="table-wrap"><table class="t"><thead><tr><th>Client</th><th>Building</th><th>Lease ends</th><th class="num">Months left</th><th class="num">Past fee</th><th>Agent</th></tr></thead>
+          <tbody>${le.calls.map((r) => h`<tr><td>${r.account_name || r.deal_name}</td><td>${r.property_name || "not known"}</td><td>${niceDate(r.expiry)}</td><td class="num">${num(r.months_left, 1)}</td><td class="num">${moneyShort(r.past_fee_sgd)}</td><td>${r.lead_agent || "not known"}</td></tr>`)}</tbody></table></div>` : ""}
+        <h3>Clients who came back</h3>
+        <p class="so-what">${p.repeat_clients.accounts_with_repeat ? h`<strong>${plural(p.repeat_clients.accounts_with_repeat, "client")}</strong> have done more than one deal with you, bringing ${pct(p.repeat_clients.repeat_share_of_fees_pct)} of recorded fees. Staying in touch with them is usually the cheapest new business.` : "No client has done more than one deal yet."}</p>
+        ${p.repeat_clients.accounts.length ? h`<div class="table-wrap"><table class="t"><thead><tr><th>Client</th><th class="num">Deals</th><th class="num">Total fees</th><th>Last deal</th></tr></thead>
+          <tbody>${p.repeat_clients.accounts.map((r) => h`<tr><td>${r.name}</td><td class="num">${num(r.deals)}</td><td class="num">${moneyShort(r.total_fee_sgd)}</td><td>${niceDate(r.last_done)}</td></tr>`)}</tbody></table></div>` : ""}
+      </div></section>
+
+      <section class="box y"><h2>What fees still need billing?</h2><div class="bd">
+        <p class="so-what"><strong>${moneyShort(unbilled.fee_sgd)}</strong> across <strong>${plural(unbilled.deals, "deal")}</strong> is marked "not billed".
+          ${bi.n_dated < unbilled.deals ? ` Only ${num(bi.n_dated)} of them have a deal date, so the ageing below is incomplete.` : ""}</p>
+        ${bars((bi.unbilled_by_age || []).map((x) => ({ label: x.bucket, sub: plural(x.deals, "deal"), value: x.fee_sgd })), { fmtVal: moneyShort })}
+        <p class="help">Billed so far: ${plural(bi.billed.deals, "deal")}, ${moneyShort(bi.billed.fee_sgd)}.</p>
+      </div></section>
+
+      <section class="box"><h2>When do deals happen?</h2><div class="bd">
+        <p class="so-what">Based on ${num(sea.n_dated)} of ${num(sea.n_total)} deals that have a date. Dates in the future are shown too.</p>
+        <h3>Deals by year</h3>${columns(sea.by_year || [], { labelKey: "year", valueKey: "deals" })}
+        <h3>Deals by month of the year</h3>${columns((sea.by_month || []).map((m) => ({ label: MONTHS[m.month - 1], deals: m.deals })), { labelKey: "label", valueKey: "deals" })}
+      </div></section>
+
+      <section class="box o"><h2>Agents at a glance</h2><div class="bd">
+        <p class="so-what">Deals per agent and the typical fee, adjusted so agents with only a few deals don't look better or worse by chance. <strong>It is not a league table.</strong></p>
+        <div class="table-wrap"><table class="t"><thead><tr><th>Agent</th><th class="num">Deals</th><th class="num">Typical fee (adjusted)</th></tr></thead>
+        <tbody>${(p.agents || []).slice(0, 15).map((a) => h`<tr><td>${a.agent}</td><td class="num">${num(a.deals)}</td><td class="num">${moneyShort(a.shrunk_median_fee_sgd ?? a.median_fee_sgd)}</td></tr>`)}</tbody></table></div>
+      </div></section>
+    </div></div>`.s;
 }
 
-document.getElementById("deal_form").addEventListener("submit", runEvaluation);
-document.getElementById("provider").addEventListener("change", () => {
-  document.getElementById("model").value = "";
-  updateProviderStatus();
+/* ---------- footer help ---------- */
+function renderHelp() {
+  const GLOSS = [
+    ["Similar deals", "Past deals that look like the new one: same line of business, similar size, lease length or building."],
+    ["Typical fee", "The middle value: half of similar deals earned less and half earned more. We use it instead of the average because a few very large deals would make the average look too high."],
+    ["How much to trust this", "High means many similar deals with recorded fees. Low means only a few, so treat the numbers as a rough guide."],
+    ["Writing assistant", "An optional AI that writes the summary text. It never calculates the numbers, and your names are removed before it sees anything."],
+    ["Chance of winning", "Only shown when your records say which deals were won or lost. Right now most records don't, so we say so instead of guessing."],
+  ];
+  $("#glossary").innerHTML = GLOSS.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  $("#trust-notes").innerHTML = [
+    "Fees come from your own past deals, so they show what did happen, not what will.",
+    "Your records only list deals that went ahead, so fees are always \"if the deal is won\".",
+    "The effort and hours suggestions are starting guides that haven't been tested against real effort data.",
+    "The more details you give, the better the match. The tool always tells you what is missing.",
+  ].map((t) => `<li>${esc(t)}</li>`).join("");
+  $("#provider-status").innerHTML = ((S.meta && S.meta.providers) || []).map((p) => `<li><strong>${esc(p.label)}</strong>: ${p.available ? "ready" : "not available"} (${esc(p.detail)})</li>`).join("");
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", async (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === "pick-past") {
+    const d = (S.deals || []).find((x) => x.deal_name === el.dataset.name);
+    if (!d) return;
+    clearTimeout(S.debounce);
+    S.past = d;
+    const deal = { deal_name: d.deal_name };
+    if (d.industry) deal.industry = d.industry;
+    if (Number(d.size_sqft) > 0) deal.size_sqft = Number(d.size_sqft);
+    if (Number(d.lease_term_months) > 0) deal.lease_term_months = Number(d.lease_term_months);
+    if (Number(d.gross_signing_rent_psf) > 0) deal.gross_signing_rent_psf = Number(d.gross_signing_rent_psf);
+    if (d.property_name) deal.property_name = d.property_name;
+    if (d.lead_agent) deal.agent_name = d.lead_agent;
+    $("#past-list").innerHTML = ""; $("#past-search").value = "";
+    renderPastActive();
+    startRun({ deal, llm: { provider: "template", model: null } });
+  } else if (act === "back-to-mine") {
+    S.past = null; renderPastActive();
+    if (hasSignal() && !validateAll()) runNew(); else { S.scorecard = null; S.run = null; renderAnswer(); renderRight(); }
+  } else if (act === "retry") { if (S.run) startRun(S.run.payload); }
+  else if (act === "stop") { if (S.controller) S.controller.abort(); clearTimeout(S.slowTimer); S.run = null; renderAnswer(); say("Stopped."); }
+  else if (act === "clear") {
+    clearTimeout(S.debounce);
+    S.deal = Object.assign({}, EMPTY_DEAL); saveDeal(); S.past = null;
+    if (S.controller) S.controller.abort();
+    S.run = null; S.scorecard = null;
+    fillForm(); fillIndustries(); renderPastActive(); renderAnswer(); renderRight();
+    $("#form-msg").hidden = true; $("#industry").focus();
+  }
+  else if (act === "print") window.print();
+  else if (act === "upload") doUpload();
+  else if (act === "sample") doSample();
+  else if (act === "toggle-load") { const slot = $("#load-slot"); slot.innerHTML = slot.innerHTML ? "" : loadPanel().s; }
+  else if (act === "fb-useful") sendFeedback({ useful: el.dataset.v === "yes" });
+  else if (act === "fb-outcome") {
+    const v = $("#fb-outcome").value;
+    if (!v) { $("#feedback-body").insertAdjacentHTML("beforeend", '<p class="note warn" role="alert">Choose what happened first.</p>'); return; }
+    sendFeedback({ outcome: v });
+  }
 });
-document.getElementById("mock_deal").addEventListener("change", fillFromMock);
-document.getElementById("ingest").addEventListener("click", ingestMock);
+document.addEventListener("submit", (e) => { if (e.target.id === "deal-form") { e.preventDefault(); clearTimeout(S.debounce); runNew(); } });
+document.addEventListener("input", (e) => {
+  const f = e.target.dataset && e.target.dataset.field;
+  if (f) { S.deal[f] = e.target.value; saveDeal(); refreshNotes(); if (S.past) { S.past = null; renderPastActive(); } scheduleRun(); }
+  else if (e.target.id === "past-search") renderPastList(e.target.value);
+});
+document.addEventListener("change", (e) => {
+  if (e.target.name === "prov") { S.provider = e.target.value; updateAutoHint(); scheduleRun(); return; }
+  const f = e.target.dataset && e.target.dataset.field;
+  if (f) { S.deal[f] = e.target.value; saveDeal(); refreshNotes(); if (S.past) { S.past = null; renderPastActive(); } scheduleRun(); }
+});
 
-buildDiagram();
-setNode("input", "idle", "idle");
-loadMeta();
-loadMockDeals();
+/* ---------- start ---------- */
+/* A link such as #industry=Technology&size=4500&years=3 pre-fills the form, so a deal can be shared. */
+function applyLinkParams() {
+  const q = new URLSearchParams(location.hash.replace(/^#\??/, ""));
+  const map = { industry: "industry", size: "size_sqft", years: "lease_len", building: "property_name", company: "account_name" };
+  let used = false;
+  for (const [key, field] of Object.entries(map)) {
+    if (q.has(key)) { S.deal[field] = q.get(key).slice(0, 255); used = true; }
+  }
+  if (q.has("years")) S.deal.lease_unit = "years";
+  if (used) saveDeal();
+}
+async function init() {
+  applyLinkParams();
+  fillForm(); renderAnswer(); renderRight();
+  try { await loadMeta(); }
+  catch (e) {
+    $("#top-status").textContent = "Not connected";
+    $("#answer").innerHTML = h`<div class="banner bad" role="alert">${e.message}</div>`.s;
+    return;
+  }
+  fillIndustries(); fillForm(); fillWriters(); updateAutoHint(); renderTop(); renderHelp(); renderAnswer();
+  if (S.meta.has_data) {
+    await Promise.all([loadDeals().catch(() => null), loadPortfolio()]);
+    renderPastList(""); renderPicture(); renderRight();
+    if (hasSignal() && !validateAll()) scheduleRun();
+  }
+}
+init();
 </script>
 </body>
 </html>

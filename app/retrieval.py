@@ -53,6 +53,20 @@ def _has_core_overlap(shared: set[str]) -> bool:
     return any(feature.startswith(CORE_FEATURE_PREFIXES) for feature in shared)
 
 
+def _matched_on(shared: set[str]) -> list[str]:
+    """Plain-English reasons a deal matched, derived from the shared features."""
+    reasons: list[str] = []
+    if any(f.startswith("ind_") for f in shared):
+        reasons.append("same industry")
+    if any(f.startswith("size_") for f in shared):
+        reasons.append("same size band")
+    if any(f.startswith("term_") for f in shared):
+        reasons.append("similar lease length")
+    if any(f.startswith("prop_") for f in shared):
+        reasons.append("same building")
+    return reasons
+
+
 def find_analogues(
     deals: list[Deal],
     query: dict,
@@ -112,7 +126,7 @@ def find_analogues(
     if q_norm == 0:
         return []
 
-    scored: list[tuple[float, Deal]] = []
+    scored: list[tuple[float, Deal, list[str]]] = []
     for deal, counts in docs:
         d_vec = {t: tf * idf(t) for t, tf in counts.items()}
         d_norm = _norm(d_vec)
@@ -124,7 +138,7 @@ def find_analogues(
         dot = sum(q_vec[t] * d_vec[t] for t in sorted(shared))
         similarity = dot / (q_norm * d_norm)
         if similarity >= MIN_SIMILARITY:
-            scored.append((similarity, deal))
+            scored.append((similarity, deal, _matched_on(shared)))
 
     scored.sort(key=lambda item: (-round(item[0], _RANK_PRECISION), item[1].deal_name))
     return [
@@ -136,6 +150,7 @@ def find_analogues(
             gross_fee_sgd=deal.gross_fee_sgd,
             outcome=deal.outcome,
             similarity=round(min(similarity, 1.0), 3),
+            matched_on=matched_on,
         )
-        for similarity, deal in scored[:k]
+        for similarity, deal, matched_on in scored[:k]
     ]

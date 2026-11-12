@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Optional
 
 import pandas as pd
@@ -36,6 +37,24 @@ def _outcome(group: pd.DataFrame) -> Optional[str]:
     return value if value in {"WON", "LOST"} else None
 
 
+MIN_LEASE_YEAR = 1990
+MAX_LEASE_YEAR = 2100
+
+
+def _plausible_dates(group: pd.DataFrame, column: str) -> list[date]:
+    if column not in group.columns:
+        return []
+    dates: list[date] = []
+    for value in group[column]:
+        if is_missing(value):
+            continue
+        parsed = pd.to_datetime(value, dayfirst=True, errors="coerce")
+        if pd.isna(parsed) or not MIN_LEASE_YEAR <= parsed.year <= MAX_LEASE_YEAR:
+            continue
+        dates.append(parsed.date())
+    return dates
+
+
 def read_leasing_xlsx(path: str) -> pd.DataFrame:
     df = pd.read_excel(path, sheet_name=0)
     df.columns = [str(c).strip() for c in df.columns]
@@ -54,6 +73,8 @@ def build_deal_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
         terms = [t for t in (parse_lease_term_months(v) for v in group["Lease Term"]) if t is not None]
         lead_agents = group.loc[group["Role"] == "Lead Broker", "Agent Name"]
         done = pd.to_datetime(_first_text(group["Deal Done Date"]), dayfirst=True, errors="coerce")
+        commence = _plausible_dates(group, "Lease Commence Date")
+        expiry = _plausible_dates(group, "Lease Expiry Date")
         rows.append(
             {
                 "deal_name": str(deal_name).strip(),
@@ -71,6 +92,8 @@ def build_deal_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
                 "billing_status": _first_text(group["Billing Status"]),
                 "billing_fy_year": _first_int(group["Billing FY Year"]),
                 "outcome": _outcome(group),
+                "lease_commence_date": min(commence) if commence else None,
+                "lease_expiry_date": max(expiry) if expiry else None,
                 "source_row_count": int(len(group)),
             }
         )
