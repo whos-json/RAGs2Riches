@@ -82,7 +82,8 @@ def main() -> int:
 
     from app.api import app
 
-    threading.Thread(target=open_browser_when_ready, args=(port,), daemon=True).start()
+    if not os.environ.get("RAGS2RICHES_NO_BROWSER"):
+        threading.Thread(target=open_browser_when_ready, args=(port,), daemon=True).start()
     uvicorn.run(app, host=HOST, port=port, log_level="info")
     return 0
 
