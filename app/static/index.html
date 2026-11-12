@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAGS2Riches</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
+          --accent:#4da3ff; --ok:#3fb950; --err:#f85149; --warn:#d29922; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:baseline; gap:16px; }
+  header h1 { font-size:18px; margin:0; }
+  header span { color:var(--muted); font-size:13px; }
+  main { display:grid; grid-template-columns: 330px 1fr; gap:16px; padding:16px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px; }
+  .panel h2 { font-size:14px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  input, select, textarea { width:100%; padding:7px 8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font:inherit; }
+  textarea { min-height:60px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .hint { font-size:11px; color:var(--muted); margin-top:3px; }
+  button { margin-top:12px; width:100%; padding:9px; border:0; border-radius:6px; background:var(--accent); color:#06121f; font-weight:600; cursor:pointer; }
+  button.secondary { background:transparent; color:var(--accent); border:1px solid var(--border); font-weight:500; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .status-pill { display:inline-block; font-size:11px; padding:1px 7px; border-radius:99px; border:1px solid var(--border); margin-left:6px; }
+  .status-pill.up { color:var(--ok); border-color:var(--ok); }
+  .status-pill.down { color:var(--warn); border-color:var(--warn); }
+  #diagram-wrap { overflow-x:auto; }
+  svg#diagram { width:100%; min-width:900px; height:auto; }
+  .node rect { fill:#1c2330; stroke:#3a4150; stroke-width:2; rx:10; transition: all .3s; }
+  .node.running rect { fill:#17314f; stroke:var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .node.done rect { fill:#14301f; stroke:var(--ok); }
+  .node.error rect { fill:#3a1d1d; stroke:var(--err); }
+  .node text.label { fill:var(--text); font-size:13px; font-weight:600; text-anchor:middle; }
+  .node text.tech { fill:var(--muted); font-size:11px; text-anchor:middle; }
+  .node text.meta { fill:var(--text); font-size:11px; text-anchor:middle; }
+  .edge { stroke:#3a4150; stroke-width:2; fill:none; marker-end:url(#arrow); }
+  .edge.active { stroke:var(--accent); stroke-dasharray:6 4; animation: flow .6s linear infinite; }
+  .edge.done { stroke:var(--ok); }
+  @keyframes pulse { 0%,100% { filter:drop-shadow(0 0 0 rgba(77,163,255,0)); } 50% { filter:drop-shadow(0 0 8px rgba(77,163,255,.7)); } }
+  @keyframes flow { to { stroke-dashoffset: -20; } }
+  .lower { display:grid; grid-template-columns: 1fr 1.4fr; gap:16px; margin-top:16px; }
+  #log { height:260px; overflow:auto; font:12px/1.5 Consolas, monospace; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; }
+  #log .ts { color:var(--muted); }
+  #log .err { color:var(--err); }
+  #log .ok { color:var(--ok); }
+  .card { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; }
+  .card h3 { font-size:12px; margin:0 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .kv { display:grid; grid-template-columns: 1fr 1fr; gap:6px 14px; }
+  .kv div b { display:block; font-size:11px; color:var(--muted); font-weight:500; }
+  .na { color:var(--warn); }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:500; }
+  ul { margin:4px 0 0 18px; padding:0; }
+  pre { white-space:pre-wrap; word-break:break-word; font:11px/1.4 Consolas, monospace; background:var(--bg); padding:8px; border-radius:6px; border:1px solid var(--border); max-height:300px; overflow:auto; }
+  .badge { font-size:11px; padding:1px 7px; border-radius:99px; border:1px solid var(--border); color:var(--muted); }
+  .badge.llm { color:var(--accent); border-color:var(--accent); }
+  .badge.fallback { color:var(--warn); border-color:var(--warn); }
+  @media (max-width: 1000px) { main, .lower { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>RAGS2Riches</h1>
+  <span>LangChain + LangGraph workflow · UAT data: mock leasing ledger</span>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>New deal</h2>
+    <label for="mock_deal">Load a historical deal (UAT backtest)</label>
+    <select id="mock_deal"><option value="">— choose —</option></select>
+    <div class="hint" id="mock_hint">Backtests exclude the loaded deal from its own comparables.</div>
+
+    <form id="deal_form" autocomplete="off">
+      <label for="deal_name">Deal name (optional)</label>
+      <input id="deal_name" placeholder="e.g. Client 012 - Deal 1" />
+      <label for="account_name">Account name</label>
+      <input id="account_name" />
+      <label for="industry">Industry</label>
+      <select id="industry"><option value="">— any —</option></select>
+      <div class="row">
+        <div>
+          <label for="size_sqft">Size (sq ft)</label>
+          <input id="size_sqft" type="number" min="0" step="any" />
+        </div>
+        <div>
+          <label for="lease_term_months">Lease term (months)</label>
+          <input id="lease_term_months" type="number" min="0" step="any" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="gross_signing_rent_psf">Gross rent (psf/mo)</label>
+          <input id="gross_signing_rent_psf" type="number" min="0" step="any" />
+        </div>
+        <div>
+          <label for="agent_name">Lead agent</label>
+          <input id="agent_name" />
+        </div>
+      </div>
+      <label for="property_name">Property name</label>
+      <input id="property_name" />
+      <label for="notes">Notes (emails and phone numbers are redacted before any LLM call)</label>
+      <textarea id="notes"></textarea>
+
+      <h2 style="margin-top:14px">Synthesis engine</h2>
+      <label for="provider">LLM provider</label>
+      <select id="provider"></select>
+      <div class="hint" id="provider_status"></div>
+      <label for="model">Model</label>
+      <input id="model" placeholder="leave blank for provider default" />
+
+      <button type="submit" id="run">Run evaluation</button>
+      <button type="button" class="secondary" id="ingest">Re-ingest mock data</button>
+    </form>
+    <div class="hint" id="ingest_status"></div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <h2>Live workflow <span id="run_status" class="badge"></span></h2>
+      <div id="diagram-wrap">
+        <svg id="diagram" viewBox="0 0 1092 160" role="img" aria-label="Deal inference workflow diagram"></svg>
+      </div>
+    </div>
+
+    <div class="lower">
+      <div class="panel">
+        <h2>Event log</h2>
+        <div id="log"></div>
+      </div>
+      <div class="panel">
+        <h2>Scorecard</h2>
+        <div id="scorecard"><div class="hint">Run an evaluation to see the scorecard.</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const NODES = [
+  { id: "input", label: "Deal input", tech: "form" },
+  { id: "validate_input", label: "Validate", tech: "Pydantic" },
+  { id: "sql_baseline", label: "SQL baseline", tech: "SQLAlchemy" },
+  { id: "analogue_retrieval", label: "Analogues", tech: "local TF-IDF" },
+  { id: "llm_synthesis", label: "LLM synthesis", tech: "LangChain model" },
+  { id: "assemble_scorecard", label: "Assemble", tech: "Pydantic" },
+  { id: "output", label: "Scorecard", tech: "JSON" },
+];
+const W = 132, H = 62, GAP = 24, X0 = 12, Y = 24;
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("diagram");
+const logEl = document.getElementById("log");
+const scorecardEl = document.getElementById("scorecard");
+const runStatus = document.getElementById("run_status");
+let catalog = [];
+
+const el = (tag, attrs = {}, text) => {
+  const node = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+const x = (i) => X0 + i * (W + GAP);
+
+function buildDiagram() {
+  svg.innerHTML = "";
+  const defs = el("defs");
+  const marker = el("marker", { id: "arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse" });
+  marker.appendChild(el("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#6e7681" }));
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  for (let i = 0; i < NODES.length - 1; i++) {
+    const edge = el("path", { id: `edge-${i}`, class: "edge",
+      d: `M ${x(i) + W} ${Y + H / 2} L ${x(i + 1) - 2} ${Y + H / 2}` });
+    svg.appendChild(edge);
+  }
+  NODES.forEach((n, i) => {
+    const g = el("g", { class: "node", id: `node-${n.id}` });
+    g.appendChild(el("rect", { x: x(i), y: Y, width: W, height: H }));
+    g.appendChild(el("text", { class: "label", x: x(i) + W / 2, y: Y + 26 }, n.label));
+    g.appendChild(el("text", { class: "tech", x: x(i) + W / 2, y: Y + 44 }, n.tech));
+    g.appendChild(el("text", { class: "meta", id: `meta-${n.id}`, x: x(i) + W / 2, y: Y + H + 18 }, "idle"));
+    svg.appendChild(g);
+  });
+}
+
+function setNode(id, state, meta) {
+  const g = document.getElementById(`node-${id}`);
+  if (!g) return;
+  g.setAttribute("class", `node ${state}`);
+  const m = document.getElementById(`meta-${id}`);
+  if (m) {
+    m.textContent = meta ?? "";
+    m.setAttribute("class", "meta");
+  }
+  g.querySelectorAll("title").forEach((t) => t.remove());
+  g.appendChild(el("title", {}, meta ?? ""));
+}
+
+function setEdge(index, state) {
+  const edge = document.getElementById(`edge-${index}`);
+  if (edge) edge.setAttribute("class", `edge ${state}`);
+}
+
+function edgeIndexInto(nodeId) {
+  return NODES.findIndex((n) => n.id === nodeId) - 1;
+}
+
+function resetDiagram() {
+  buildDiagram();
+  setNode("input", "done", "form submitted");
+  runStatus.textContent = "running";
+  scorecardEl.innerHTML = '<div class="hint">Running…</div>';
+}
+
+function log(message, cls = "") {
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement("div");
+  line.innerHTML = `<span class="ts">${time}</span> <span class="${cls}">${esc(message)}</span>`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+const esc = (v) => String(v ?? "—").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => (n === null || n === undefined ? '<span class="na">unavailable</span>' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
+const fmtText = (n, suffix = "") => (n === null || n === undefined ? '<span class="na">unavailable</span>' : `${esc(n)}${suffix}`);
+
+function handleEvent(ev) {
+  switch (ev.type) {
+    case "run_start":
+      log(`run started · provider=${ev.provider}${ev.model ? " · model=" + ev.model : ""}`);
+      break;
+    case "node_start": {
+      const idx = edgeIndexInto(ev.node);
+      if (idx >= 0) setEdge(idx, "active");
+      setNode(ev.node, "running", "running…");
+      log(`▶ ${ev.node}`);
+      break;
+    }
+    case "node_end": {
+      const idx = edgeIndexInto(ev.node);
+      if (idx >= 0) setEdge(idx, "done");
+      setNode(ev.node, "done", `${ev.duration_ms} ms`);
+      log(`✔ ${ev.node} (${ev.duration_ms} ms): ${ev.summary}`, "ok");
+      break;
+    }
+    case "node_error":
+      setNode(ev.node, "error", ev.error);
+      log(`✖ ${ev.node}: ${ev.error}`, "err");
+      break;
+    case "run_complete":
+      setEdge(NODES.length - 2, "done");
+      setNode("output", "done", "ready");
+      runStatus.textContent = "complete";
+      renderScorecard(ev.scorecard);
+      log("run complete", "ok");
+      break;
+    case "run_error":
+      setNode("output", "error", ev.error);
+      runStatus.textContent = "failed";
+      scorecardEl.innerHTML = `<div class="card na">${esc(ev.error)}</div>`;
+      log(`✖ run failed: ${ev.error}`, "err");
+      break;
+  }
+}
+
+function renderScorecard(s) {
+  const b = s.evidence.baseline;
+  const narrativeBadge = s.narrative_source === "llm"
+    ? '<span class="badge llm">LLM narrative</span>'
+    : s.narrative_source === "template_fallback"
+      ? '<span class="badge fallback">template fallback</span>'
+      : '<span class="badge">template narrative</span>';
+  const analogueRows = s.evidence.analogues.map((a) => `
+    <tr><td>${esc(a.deal_name)}</td><td>${esc(a.industry)}</td><td>${fmt(a.size_sqft)}</td>
+        <td>${fmtText(a.lease_term_months, " mo")}</td><td>${fmt(a.gross_fee_sgd)}</td><td>${a.similarity}</td></tr>`).join("")
+    || '<tr><td colspan="6" class="na">no analogues found</td></tr>';
+
+  scorecardEl.innerHTML = `
+    <div class="card">
+      <h3>Deal ${esc(s.deal_id)} ${narrativeBadge}</h3>
+      <div class="kv">
+        <div><b>Win probability</b>${fmtText(s.estimates.win_probability_pct, "%")}</div>
+        <div><b>Median comparable fee (SGD)</b>${fmt(s.estimates.estimated_fee_sgd)}</div>
+        <div><b>Timeframe (days)</b>${fmtText(s.estimates.estimated_timeframe_days)}</div>
+        <div><b>Confidence</b>${esc(s.estimates.confidence_level)}</div>
+        <div><b>Pursue recommendation</b>${fmtText(s.qualification.pursue_recommendation)}</div>
+        <div><b>Fit score</b>${fmtText(s.qualification.fit_score)}</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Effort allocation</h3>
+      <div>${esc(s.effort_allocation.tier)} · up to ${esc(s.effort_allocation.max_recommended_hours)} hrs</div>
+      <ul>${s.effort_allocation.recommended_resources.map((r) => `<li>${esc(r)}</li>`).join("") || '<li class="na">none</li>'}</ul>
+    </div>
+    <div class="card">
+      <h3>Closing playbook</h3>
+      <div>${esc(s.closing_playbook.winning_strategy)}</div>
+      <ul>${s.closing_playbook.key_risks_and_mitigations.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
+      <div class="hint">Referenced: ${s.closing_playbook.referenced_historical_deals.map(esc).join(", ") || "none"}</div>
+    </div>
+    <div class="card">
+      <h3>Evidence · ${esc(b.match_level)} (${b.n_comparables} comparables)</h3>
+      <div class="kv">
+        <div><b>Median fee (SGD)</b>${fmt(b.median_fee_sgd)}</div>
+        <div><b>Mean fee (SGD)</b>${fmt(b.mean_fee_sgd)}</div>
+        <div><b>Median size (sq ft)</b>${fmt(b.median_size_sqft)}</div>
+        <div><b>Median term (mo)</b>${fmtText(b.median_lease_term_months)}</div>
+        <div><b>Outcomes known</b>${b.outcome_coverage}</div>
+        <div><b>Win rate</b>${fmtText(b.win_rate_pct, "%")}</div>
+      </div>
+      <table style="margin-top:8px"><thead><tr><th>Analogue</th><th>Industry</th><th>Sq ft</th><th>Term</th><th>Fee SGD</th><th>Sim.</th></tr></thead>
+      <tbody>${analogueRows}</tbody></table>
+    </div>
+    <div class="card">
+      <h3>Data gaps</h3>
+      <ul>${s.data_gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>
+      ${s.warnings.length ? `<h3 style="margin-top:8px">Warnings</h3><ul>${s.warnings.map((w) => `<li class="na">${esc(w)}</li>`).join("")}</ul>` : ""}
+    </div>
+    <details><summary class="hint">Raw JSON</summary><pre>${esc(JSON.stringify(s, null, 2))}</pre></details>`;
+}
+
+function val(id) {
+  const v = document.getElementById(id).value.trim();
+  return v === "" ? null : v;
+}
+const num = (id) => (val(id) === null ? null : Number(val(id)));
+
+function collectPayload() {
+  return {
+    deal: {
+      deal_name: val("deal_name"), account_name: val("account_name"), industry: val("industry"),
+      size_sqft: num("size_sqft"), lease_term_months: num("lease_term_months"),
+      gross_signing_rent_psf: num("gross_signing_rent_psf"), property_name: val("property_name"),
+      agent_name: val("agent_name"), notes: val("notes"),
+    },
+    llm: { provider: val("provider") || "template", model: val("model") },
+  };
+}
+
+async function runEvaluation(event) {
+  event.preventDefault();
+  const button = document.getElementById("run");
+  button.disabled = true;
+  logEl.innerHTML = "";
+  resetDiagram();
+  try {
+    const res = await fetch("/api/evaluate/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(collectPayload()),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`HTTP ${res.status}: ${body}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) >= 0) {
+        const chunk = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+        if (line) handleEvent(JSON.parse(line.slice(6)));
+      }
+    }
+  } catch (err) {
+    runStatus.textContent = "failed";
+    log(`✖ ${err.message}`, "err");
+    scorecardEl.innerHTML = `<div class="card na">${esc(err.message)}</div>`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function updateProviderStatus() {
+  const name = document.getElementById("provider").value;
+  const info = catalog.find((c) => c.name === name);
+  const status = document.getElementById("provider_status");
+  if (!info) return;
+  const cls = info.available ? "up" : "down";
+  status.innerHTML = `${esc(info.locality)} · <span class="status-pill ${cls}">${info.available ? "available" : "unavailable"}</span> ${esc(info.detail)}`;
+  const modelInput = document.getElementById("model");
+  modelInput.placeholder = info.default_model ?? "no model needed";
+}
+
+async function loadMeta() {
+  const meta = await (await fetch("/api/meta")).json();
+  catalog = meta.providers;
+  const providerSelect = document.getElementById("provider");
+  providerSelect.innerHTML = catalog.map((c) => `<option value="${c.name}">${esc(c.label)}</option>`).join("");
+  providerSelect.value = meta.default_llm.provider;
+  if (meta.default_llm.model) document.getElementById("model").value = meta.default_llm.model;
+  updateProviderStatus();
+
+  const industrySelect = document.getElementById("industry");
+  industrySelect.insertAdjacentHTML("beforeend", meta.industries.map((i) => `<option value="${esc(i)}">${esc(i)}</option>`).join(""));
+}
+
+async function loadMockDeals() {
+  const deals = await (await fetch("/api/deals?limit=1000")).json();
+  const select = document.getElementById("mock_deal");
+  select.innerHTML = '<option value="">— choose —</option>' + deals.map((d, i) => `<option value="${i}">${esc(d.deal_name)}</option>`).join("");
+  select.dataset.deals = JSON.stringify(deals);
+}
+
+function fillFromMock(event) {
+  const index = event.target.value;
+  if (index === "") return;
+  const d = JSON.parse(event.target.dataset.deals ?? "[]")[Number(index)];
+  if (!d) return;
+  document.getElementById("deal_name").value = d.deal_name ?? "";
+  document.getElementById("account_name").value = "";
+  document.getElementById("industry").value = d.industry ?? "";
+  document.getElementById("size_sqft").value = d.size_sqft ?? "";
+  document.getElementById("lease_term_months").value = d.lease_term_months ?? "";
+  document.getElementById("gross_signing_rent_psf").value = d.gross_signing_rent_psf ?? "";
+  document.getElementById("property_name").value = d.property_name ?? "";
+  document.getElementById("agent_name").value = d.lead_agent ?? "";
+  document.getElementById("mock_hint").textContent =
+    `Backtest: excluded from its own comparables. Actual gross fee on record: SGD ${d.actual_gross_fee_sgd ? Number(d.actual_gross_fee_sgd).toLocaleString() : "n/a"}.`;
+}
+
+async function ingestMock() {
+  const status = document.getElementById("ingest_status");
+  status.textContent = "ingesting…";
+  const res = await fetch("/api/ingest", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const body = await res.json();
+  status.textContent = res.ok ? `loaded ${body.deals_loaded} deals from ${body.source_rows} rows` : `error: ${body.detail}`;
+  await loadMockDeals();
+}
+
+document.getElementById("deal_form").addEventListener("submit", runEvaluation);
+document.getElementById("provider").addEventListener("change", () => {
+  document.getElementById("model").value = "";
+  updateProviderStatus();
+});
+document.getElementById("mock_deal").addEventListener("change", fillFromMock);
+document.getElementById("ingest").addEventListener("click", ingestMock);
+
+buildDiagram();
+setNode("input", "idle", "idle");
+loadMeta();
+loadMockDeals();
+</script>
+</body>
+</html>

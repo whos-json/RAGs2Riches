@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deal Intelligence &amp; Sales Copilot</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="desktop">
+    <section class="window" aria-labelledby="window-title">
+      <header class="title-bar">
+        <span id="window-title" class="title-text">Deal Intelligence &amp; Sales Copilot</span>
+      </header>
+
+      <nav class="menu-bar" aria-label="Application">
+        <button type="button" class="menu-item" id="menu-new">New deal</button>
+        <button type="button" class="menu-item" id="menu-about">About</button>
+      </nav>
+
+      <div class="window-body">
+        <div class="layout">
+          <fieldset class="groupbox form-panel">
+            <legend>New deal</legend>
+            <form id="deal-form" novalidate>
+              <div class="field-row">
+                <label for="account_name">Account name</label>
+                <input id="account_name" name="account_name" type="text" maxlength="120" required>
+              </div>
+              <div class="field-row">
+                <label for="industry">Industry</label>
+                <select id="industry" name="industry" required></select>
+              </div>
+              <div class="field-row">
+                <label for="employees">Employees</label>
+                <input id="employees" name="employees" type="number" min="1" step="1" required>
+              </div>
+              <div class="field-row">
+                <label for="deal_value_usd">Deal value (USD)</label>
+                <input id="deal_value_usd" name="deal_value_usd" type="number" min="1" step="1000" required>
+              </div>
+              <div class="field-row">
+                <label for="stage">Stage</label>
+                <select id="stage" name="stage" required></select>
+              </div>
+              <div class="field-row">
+                <label for="expected_close_days">Expected close (days)</label>
+                <input id="expected_close_days" name="expected_close_days" type="number" min="1" step="1" required>
+              </div>
+              <div class="field-row">
+                <span aria-hidden="true"></span>
+                <div class="checkbox">
+                  <input id="budget_confirmed" name="budget_confirmed" type="checkbox">
+                  <label for="budget_confirmed">Budget confirmed</label>
+                </div>
+              </div>
+              <div class="field-row">
+                <label for="sponsor">Sponsor access</label>
+                <select id="sponsor" name="sponsor" required></select>
+              </div>
+              <div class="field-row">
+                <label for="need">Need urgency</label>
+                <select id="need" name="need" required></select>
+              </div>
+              <div class="field-row field-column">
+                <label for="notes">Notes (pain points, stakeholders)</label>
+                <textarea id="notes" name="notes" rows="5" maxlength="2000"></textarea>
+              </div>
+              <div class="button-row">
+                <button type="submit" class="btn default" id="evaluate-btn">Evaluate</button>
+                <button type="reset" class="btn" id="reset-btn">Clear</button>
+              </div>
+            </form>
+          </fieldset>
+
+          <section class="results" aria-label="Evaluation results">
+            <div id="empty-state" class="sunken-panel empty-state">
+              <p>No evaluation yet. Fill in the deal and press Evaluate.</p>
+            </div>
+
+            <div id="results" hidden>
+              <div class="results-grid">
+                <fieldset class="groupbox">
+                  <legend>Qualification</legend>
+                  <p class="recommendation"><span id="recommendation" class="badge"></span></p>
+                  <div class="meter-row">
+                    <label for="fit-bar">Fit score</label>
+                    <progress id="fit-bar" max="100" value="0"></progress>
+                    <span id="fit-value" class="mono"></span>
+                  </div>
+                  <table class="list-view">
+                    <caption class="sr-only">Qualification factors</caption>
+                    <thead>
+                      <tr><th scope="col">Factor</th><th scope="col">Assessment</th><th scope="col">Points</th></tr>
+                    </thead>
+                    <tbody id="factor-rows"></tbody>
+                  </table>
+                </fieldset>
+
+                <fieldset class="groupbox">
+                  <legend>Estimates</legend>
+                  <div class="meter-row">
+                    <label for="win-bar">Win probability</label>
+                    <progress id="win-bar" max="100" value="0"></progress>
+                    <span id="win-value" class="mono"></span>
+                  </div>
+                  <div class="field-row">
+                    <label for="expected-value">Expected value</label>
+                    <input id="expected-value" class="readonly" type="text" readonly>
+                  </div>
+                  <div class="field-row">
+                    <label for="timeframe">Timeframe</label>
+                    <input id="timeframe" class="readonly" type="text" readonly>
+                  </div>
+                  <div class="field-row">
+                    <label for="confidence">Confidence</label>
+                    <input id="confidence" class="readonly" type="text" readonly>
+                  </div>
+                  <p class="hint">Expected value = deal value x win probability.</p>
+                </fieldset>
+
+                <fieldset class="groupbox">
+                  <legend>Effort allocation</legend>
+                  <div class="field-row">
+                    <label for="tier">Tier</label>
+                    <input id="tier" class="readonly" type="text" readonly>
+                  </div>
+                  <div class="field-row">
+                    <label for="max-hours">Max hours</label>
+                    <input id="max-hours" class="readonly" type="text" readonly>
+                  </div>
+                  <p class="hint">Checkboxes are a local to-do list. They are not saved.</p>
+                  <ul id="resources" class="checklist"></ul>
+                </fieldset>
+
+                <fieldset class="groupbox">
+                  <legend>Closing playbook</legend>
+                  <div class="tabs" role="tablist" aria-label="Playbook sections">
+                    <button type="button" class="tab" role="tab" id="tab-strategy" aria-controls="panel-strategy" aria-selected="true" tabindex="0">Strategy</button>
+                    <button type="button" class="tab" role="tab" id="tab-risks" aria-controls="panel-risks" aria-selected="false" tabindex="-1">Risks</button>
+                    <button type="button" class="tab" role="tab" id="tab-analogues" aria-controls="panel-analogues" aria-selected="false" tabindex="-1">Analogues</button>
+                  </div>
+                  <div class="tab-panel" role="tabpanel" id="panel-strategy" aria-labelledby="tab-strategy">
+                    <p id="strategy"></p>
+                  </div>
+                  <div class="tab-panel" role="tabpanel" id="panel-risks" aria-labelledby="tab-risks" hidden>
+                    <ul id="risks" class="plain-list"></ul>
+                  </div>
+                  <div class="tab-panel" role="tabpanel" id="panel-analogues" aria-labelledby="tab-analogues" hidden>
+                    <div class="sunken-panel table-wrap">
+                      <table class="list-view">
+                        <caption class="sr-only">Closest historical deals</caption>
+                        <thead>
+                          <tr><th scope="col">Deal</th><th scope="col">Account</th><th scope="col">Outcome</th><th scope="col">Match</th></tr>
+                        </thead>
+                        <tbody id="analogue-rows"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="status-bar">
+          <p class="status-field status-message" id="status-message" role="status">Ready</p>
+          <p class="status-field" id="status-fit">Fit: -</p>
+          <p class="status-field" id="status-win">Win: -</p>
+          <p class="status-field" id="status-confidence">Confidence: -</p>
+          <p class="status-field" id="status-analogues">Analogues: -</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="about-dialog" aria-labelledby="about-title">
+    <header class="title-bar">
+      <span id="about-title" class="title-text">About</span>
+    </header>
+    <div class="window-body">
+      <p><strong>Deal Intelligence &amp; Sales Copilot</strong></p>
+      <p>Local prototype. Scores come from a rule engine run over sample historical deals, not live CRM data.</p>
+      <form method="dialog" class="button-row">
+        <button type="submit" class="btn default">OK</button>
+      </form>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
